@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class LoginCodeService
 {
@@ -52,7 +53,16 @@ class LoginCodeService
             ]);
         });
 
-        Mail::to($email)->send(new LoginCodeMail($code, self::EXPIRES_IN_MINUTES));
+        try {
+            Mail::to($email)->send(new LoginCodeMail($code, self::EXPIRES_IN_MINUTES));
+        } catch (TransportExceptionInterface $exception) {
+            report($exception);
+            RateLimiter::clear('otp-cooldown:'.$email);
+
+            throw ValidationException::withMessages([
+                'email' => 'No pudimos enviar el correo en este momento. Inténtalo de nuevo en unos minutos.',
+            ]);
+        }
 
         $this->auditLogger->log('auth.code_sent', metadata: ['email' => $email]);
     }

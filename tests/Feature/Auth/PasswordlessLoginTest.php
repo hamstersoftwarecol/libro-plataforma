@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\LoginCodeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\TestCase;
 
 class PasswordlessLoginTest extends TestCase
@@ -40,6 +41,15 @@ class PasswordlessLoginTest extends TestCase
         $this->assertSame('lector@example.com', $loginCode->email);
         $this->assertNotSame($code, $loginCode->code_hash);
         $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_mail_server_failure_shows_a_friendly_error_instead_of_crashing(): void
+    {
+        Mail::shouldReceive('to')->andThrow(new TransportException('Connection could not be established'));
+
+        $this->post(route('login.send'), ['email' => 'lector@example.com'])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['email' => 'No pudimos enviar el correo en este momento. Inténtalo de nuevo en unos minutos.']);
     }
 
     public function test_invalid_email_is_rejected(): void

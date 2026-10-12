@@ -30,6 +30,7 @@ class ReadingTrackerTest extends TestCase
         parent::setUp();
 
         Storage::fake('books');
+        $this->travelTo(today()->setTime(12, 0));
         $this->freezeSecond();
 
         $this->reader = User::factory()->create();
