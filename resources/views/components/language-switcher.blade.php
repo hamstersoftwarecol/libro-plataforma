@@ -16,19 +16,50 @@
     <div id="google_translate_element" class="hidden" aria-hidden="true"></div>
     <script>
         window.libroTranslation = (() => {
-            const current = () => (document.cookie.match(/(?:^|;\s*)googtrans=\/[a-z-]+\/([a-z-]+)/i) || [])[1] || 'es';
-            const setCookie = (value) => {
-                const expires = value ? '' : '; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-                const cookie = `googtrans=${value}${expires}; path=/`;
-                document.cookie = cookie;
-                document.cookie = `${cookie}; domain=${location.hostname}`;
-                if (location.hostname.split('.').length > 1) document.cookie = `${cookie}; domain=.${location.hostname}`;
+            const current = () => {
+                const values = [...document.cookie.matchAll(/(?:^|;\s*)googtrans=\/[a-z-]+\/([a-z-]+)/gi)].map((match) => match[1]);
+                // Google can leave the cookie on several domains; any non-Spanish value means "translated".
+                return values.find((lang) => lang !== 'es') || 'es';
             };
+
+            // libro.somosenlaces.org -> ['libro.somosenlaces.org', 'somosenlaces.org']
+            const domains = () => {
+                const parts = location.hostname.split('.');
+                if (parts.length < 2 || /^\d+$/.test(parts.at(-1))) return [];
+                return parts.slice(0, -1).map((_, index) => parts.slice(index).join('.')).filter((domain) => domain.includes('.'));
+            };
+
+            const writeCookie = (value, expired = false) => {
+                const suffix = `; path=/${expired ? '; expires=Thu, 01 Jan 1970 00:00:00 GMT' : ''}`;
+                document.cookie = `googtrans=${value}${suffix}`;
+                domains().forEach((domain) => {
+                    document.cookie = `googtrans=${value}${suffix}; domain=${domain}`;
+                    document.cookie = `googtrans=${value}${suffix}; domain=.${domain}`;
+                });
+            };
+
+            const restoreOriginal = () => {
+                const combo = document.querySelector('.goog-te-combo');
+                if (combo) {
+                    combo.value = 'es';
+                    combo.dispatchEvent(new Event('change'));
+                }
+            };
+
             const select = (lang) => {
                 if (lang === current()) return;
-                setCookie(lang === 'es' ? '' : `/es/${lang}`);
+
+                if (lang === 'es') {
+                    writeCookie('', true);
+                    writeCookie('/es/es');
+                    restoreOriginal();
+                } else {
+                    writeCookie(`/es/${lang}`);
+                }
+
                 location.reload();
             };
+
             const mark = () => document.querySelectorAll('[data-language-switcher] [data-lang]').forEach((button) => {
                 button.dataset.active = String(button.dataset.lang === current());
             });
