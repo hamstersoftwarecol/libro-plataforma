@@ -3,7 +3,7 @@
         Enviamos un código de 6 dígitos a <span class="font-semibold text-zinc-900 dark:text-white">{{ $email }}</span>. Vence en {{ \App\Services\LoginCodeService::EXPIRES_IN_MINUTES }} minutos.
     </p>
 
-    <form method="POST" action="{{ route('login.verify.store') }}" class="space-y-5">
+    <form method="POST" action="{{ route('login.verify.store') }}" class="space-y-5" id="verify-form">
         @csrf
         <div>
             <label for="code" class="label">Código de acceso</label>
@@ -22,4 +22,37 @@
         </form>
     </div>
     @error('email')<p class="error">{{ $message }}</p>@enderror
+
+    <script>
+        (() => {
+            const form = document.getElementById('verify-form');
+            const input = document.getElementById('code');
+            const button = form.querySelector('button[type="submit"]');
+            let submitted = false;
+
+            const submitWhenComplete = () => {
+                const digits = input.value.replace(/\D/g, '').slice(0, 6);
+                if (input.value !== digits) input.value = digits;
+
+                if (digits.length === 6 && ! submitted) {
+                    submitted = true;
+                    button.disabled = true;
+                    button.textContent = 'Verificando…';
+                    form.requestSubmit ? form.requestSubmit() : form.submit();
+                }
+            };
+
+            input.addEventListener('paste', (event) => {
+                const pasted = (event.clipboardData || window.clipboardData)?.getData('text') || '';
+                const digits = pasted.replace(/\D/g, '').slice(0, 6);
+                if (digits) {
+                    event.preventDefault();
+                    input.value = digits;
+                    submitWhenComplete();
+                }
+            });
+            input.addEventListener('input', submitWhenComplete);
+            form.addEventListener('submit', () => { submitted = true; });
+        })();
+    </script>
 </x-auth-card>
