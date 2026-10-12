@@ -69,10 +69,10 @@
             <div>
                 <p class="cine-line mb-8 text-xs font-semibold tracking-[0.35em] text-ember-400 uppercase" style="--delay: 1900ms">Una historia real de migración, caídas y renacimientos</p>
 
-                <h1 class="notranslate font-display text-[clamp(2.5rem,5.5vw,5.25rem)] leading-[0.95] font-light tracking-tight" translate="no">
+                <h1 class="notranslate font-hand text-[clamp(3.25rem,7vw,6.5rem)] leading-[0.88] font-medium" translate="no">
                     <span class="cine-line" style="--delay: 2200ms" data-en="The bottom">El fondo</span>
                     <span class="cine-line" style="--delay: 2700ms" data-en="wasn't">no era</span>
-                    <span class="cine-line relative inline-block font-semibold text-blood-500" style="--delay: 3300ms">
+                    <span class="cine-line relative inline-block font-bold text-blood-500" style="--delay: 3300ms">
                         <span data-en="the end.">el final.</span>
                         <svg class="absolute -bottom-3 left-0 w-full" viewBox="0 0 600 24" fill="none" preserveAspectRatio="none" aria-hidden="true">
                             <path class="cine-underline" style="--delay: 4100ms" d="M4 16 C 120 6, 300 22, 596 10" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
