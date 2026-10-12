@@ -80,12 +80,16 @@
                     </span>
                 </h1>
 
-                <p class="cine-line mt-12 max-w-xl text-lg leading-relaxed text-paper/70 sm:text-xl" style="--delay: 4300ms">
+                <p class="cine-line notranslate mt-8 font-hand text-[clamp(1.75rem,3vw,2.6rem)] leading-none text-paper/90" style="--delay: 4300ms" translate="no">
+                    <span data-en="Starting over sometimes hurts.">Empezar a veces duele.</span>
+                </p>
+
+                <p class="cine-line mt-10 max-w-xl text-lg leading-relaxed text-paper/70 sm:text-xl" style="--delay: 4700ms">
                     <span class="text-paper">¿Qué haces cuando la vida te obliga a comenzar de nuevo?</span>
                     Una historia de pérdidas, migración y renacimiento que puede parecerse a la tuya.
                 </p>
 
-                <div class="cine-line mt-12 flex flex-wrap items-center gap-4" style="--delay: 4700ms">
+                <div class="cine-line mt-12 flex flex-wrap items-center gap-4" style="--delay: 5000ms">
                     <a href="{{ $readUrl }}" class="group inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-ember-500 to-blood-500 px-8 py-4 text-base font-semibold text-white shadow-[0_20px_60px_-15px_oklch(0.6_0.18_40/0.8)] transition hover:shadow-[0_20px_70px_-10px_oklch(0.65_0.2_45/0.9)]">
                         Empezar a leer
                         <x-icon name="arrow-right" class="size-5 transition group-hover:translate-x-1" />
