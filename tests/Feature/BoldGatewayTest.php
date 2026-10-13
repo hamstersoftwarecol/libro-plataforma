@@ -51,16 +51,19 @@ class BoldGatewayTest extends TestCase
 
         $expectedSignature = hash('sha256', $payment->reference.'29900COP'.self::SECRET);
 
-        $this->actingAs($this->customer)->get($location)
-            ->assertOk()
-            ->assertSee('data-api-key="'.self::IDENTITY.'"', false)
-            ->assertSee('data-order-id="'.$payment->reference.'"', false)
-            ->assertSee('data-amount="29900"', false)
-            ->assertSee('data-currency="COP"', false)
-            ->assertSee('data-integrity-signature="'.$expectedSignature.'"', false)
-            ->assertSee('data-redirection-url="'.route('checkout.bold.return').'"', false)
-            ->assertSee('<script src="https://checkout.bold.co/library/boldPaymentButton.js" data-bold-button="dark-L"', false)
-            ->assertDontSee(self::SECRET);
+        $html = $this->actingAs($this->customer)->get($location)->assertOk()->assertDontSee(self::SECRET)->getContent();
+
+        preg_match('/const config = (\{.*?\});/s', $html, $matches);
+        $config = json_decode($matches[1] ?? '{}', true);
+
+        $this->assertSame(self::IDENTITY, $config['apiKey']);
+        $this->assertSame($payment->reference, $config['orderId']);
+        $this->assertSame('29900', $config['amount']);
+        $this->assertSame('COP', $config['currency']);
+        $this->assertSame($expectedSignature, $config['integritySignature']);
+        $this->assertSame(route('checkout.bold.return'), $config['redirectionUrl']);
+        $this->assertStringContainsString('boldPaymentButton.js', $html);
+        $this->assertStringContainsString('checkout.open()', $html);
     }
 
     public function test_bold_page_requires_signature_and_ownership(): void

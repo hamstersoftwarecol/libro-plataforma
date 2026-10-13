@@ -33,20 +33,15 @@
                         </div>
                     @endif
 
-                    <div class="flex min-h-14 flex-col items-center justify-center gap-3" id="bold-button-container">
-                        {{-- Bold's library is loaded by the button script itself, so it is always available before the button renders. --}}
-                        <script src="{{ $scriptUrl }}" data-bold-button="dark-L"
-                            @foreach ($button as $attribute => $value)
-                                data-{{ $attribute }}="{{ $value }}"
-                            @endforeach
-                        ></script>
-                        <p id="bold-loading" class="flex items-center gap-2 text-sm text-zinc-400">
-                            <span class="size-4 animate-spin rounded-full border-2 border-zinc-600 border-t-brand-500"></span>Cargando la pasarela de Bold…
+                    <div class="flex min-h-14 flex-col items-center justify-center gap-4" id="bold-redirect">
+                        <p id="bold-loading" class="flex items-center gap-2 text-sm text-zinc-300">
+                            <span class="size-4 animate-spin rounded-full border-2 border-zinc-600 border-t-brand-500"></span>Redirigiendo a la pasarela segura de Bold…
                         </p>
+                        <button type="button" id="bold-open" class="btn btn-primary hidden w-full py-3">Ir a pagar con Bold <x-icon name="arrow-right" class="size-4" /></button>
                     </div>
                     <div id="bold-help" class="hidden rounded-xl bg-amber-500/10 p-4 text-xs leading-relaxed text-amber-200 ring-1 ring-amber-500/30">
-                        <p class="font-semibold">¿No aparece el botón de pago?</p>
-                        <p class="mt-1">Desactiva el bloqueador de anuncios para este sitio y <button type="button" class="underline" onclick="location.reload()">recarga la página</button>. Si continúa, escríbenos indicando la referencia {{ $payment->reference }}.</p>
+                        <p class="font-semibold">¿No se abrió la pasarela de Bold?</p>
+                        <p class="mt-1">Pulsa «Ir a pagar con Bold». Si no funciona, desactiva el bloqueador de anuncios para este sitio y <button type="button" class="underline" onclick="location.reload()">recarga la página</button>. Referencia: {{ $payment->reference }}.</p>
                     </div>
 
                     <p class="flex items-center justify-center gap-2 text-center text-xs text-zinc-500">
@@ -61,17 +56,39 @@
 
     <script>
         (() => {
-            const container = document.getElementById('bold-button-container');
-            const rendered = () => container.querySelector('bold-payment-button, iframe, button');
-            const done = () => document.getElementById('bold-loading')?.remove();
-            const observer = new MutationObserver(() => { if (rendered()) { done(); observer.disconnect(); } });
-            observer.observe(container, { childList: true, subtree: true });
-            setTimeout(() => {
-                if (! rendered()) {
-                    done();
-                    document.getElementById('bold-help').classList.remove('hidden');
+            const config = {!! json_encode($checkout, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES) !!};
+            const loading = document.getElementById('bold-loading');
+            const openButton = document.getElementById('bold-open');
+            const showFallback = () => {
+                loading?.remove();
+                openButton.classList.remove('hidden');
+                document.getElementById('bold-help').classList.remove('hidden');
+            };
+
+            let checkout = null;
+            const open = () => {
+                try {
+                    checkout ??= new window.BoldCheckout(config);
+                    checkout.open();
+                } catch (error) {
+                    console.error(error);
+                    showFallback();
                 }
-            }, 8000);
+            };
+            openButton.addEventListener('click', open);
+
+            const start = () => {
+                if (typeof window.BoldCheckout !== 'function') return showFallback();
+                open();
+                // If the browser is still here after a while, offer the manual button.
+                setTimeout(showFallback, 6000);
+            };
+
+            const script = document.createElement('script');
+            script.src = @js($scriptUrl);
+            script.onload = start;
+            script.onerror = showFallback;
+            document.head.appendChild(script);
         })();
     </script>
 </x-app-layout>

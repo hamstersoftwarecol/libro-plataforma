@@ -30,22 +30,23 @@ class BoldCheckoutController extends Controller
         return view('checkout.bold', [
             'payment' => $payment->load('plan', 'book'),
             'book' => $payment->book ?? Book::featured(),
-            'button' => [
-                'api-key' => $gateway->identityKey(),
-                'order-id' => $payment->reference,
+            'checkout' => array_filter([
+                'apiKey' => $gateway->identityKey(),
+                'orderId' => $payment->reference,
                 'currency' => strtoupper($payment->currency),
                 'amount' => (string) $gateway->amountFor($payment),
-                'integrity-signature' => $gateway->integritySignature($payment),
-                'redirection-url' => route('checkout.bold.return'),
+                'integritySignature' => $gateway->integritySignature($payment),
+                'redirectionUrl' => route('checkout.bold.return'),
+                'originUrl' => route('checkout.create', array_filter(['libro' => $payment->book?->slug])),
                 'description' => mb_substr($payment->description(), 0, 100),
-                'customer-data' => json_encode(array_filter([
+                'customerData' => json_encode(array_filter([
                     'email' => $payment->email,
                     'fullName' => $payment->billing_name,
                     'phone' => $payment->billing_phone ? preg_replace('/\D+/', '', $payment->billing_phone) : null,
                     'documentNumber' => $payment->billing_document,
                 ])),
-                'billing-address' => json_encode(array_filter(['country' => $payment->billing_country])),
-            ],
+                'billingAddress' => json_encode(array_filter(['country' => $payment->billing_country])),
+            ]),
             'scriptUrl' => config('payments.gateways.bold.script_url'),
             'testMode' => $gateway->isTestMode(),
         ]);
