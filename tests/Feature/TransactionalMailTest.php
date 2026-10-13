@@ -30,19 +30,17 @@ class TransactionalMailTest extends TestCase
         Mail::fake();
     }
 
-    public function test_new_users_get_a_welcome_email_once(): void
+    public function test_accounts_created_by_a_payment_get_a_welcome_email(): void
     {
-        $this->post(route('login.send'), ['email' => 'nuevo@example.com']);
-        $this->post(route('login.verify.store'), ['code' => $this->lastCode()]);
+        $guestPayment = Payment::factory()->create(['user_id' => null, 'email' => 'nuevo@example.com']);
+        $this->sendWebhook($guestPayment, GatewayEvent::PAYMENT_SUCCEEDED);
 
         Mail::assertQueued(WelcomeMail::class, fn (WelcomeMail $mail) => $mail->hasTo('nuevo@example.com'));
 
-        $this->post(route('logout'));
-        $this->travel(2)->minutes();
-        $this->post(route('login.send'), ['email' => 'nuevo@example.com']);
-        $this->post(route('login.verify.store'), ['code' => $this->lastCode()]);
+        $existingPayment = Payment::factory()->create();
+        $this->sendWebhook($existingPayment, GatewayEvent::PAYMENT_SUCCEEDED);
 
-        Mail::assertQueuedCount(1);
+        Mail::assertQueued(WelcomeMail::class, 1);
     }
 
     public function test_paid_webhook_sends_a_receipt(): void

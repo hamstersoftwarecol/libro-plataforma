@@ -15,30 +15,32 @@ class CheckoutService
     public function __construct(private PaymentGatewayManager $gateways, private AuditLogger $auditLogger) {}
 
     /**
-     * Create a pending payment for the plan and return the hosted checkout URL (HU-018).
+     * Create a pending payment for the plan and return it with the hosted checkout URL (HU-018).
+     * Guests may pay without an account: it is created once the payment is confirmed.
      *
      * Card details are never collected here: the gateway's hosted page handles them.
      *
      * @param  array{billing_name?: string, billing_document?: ?string, billing_country?: string, billing_phone?: ?string}  $billing
      */
-    public function start(User $user, Plan $plan, array $billing = []): string
+    public function start(?User $user, string $email, Plan $plan, array $billing = []): CheckoutSession
     {
         $gateway = $this->gateways->driver();
 
-        return DB::transaction(function () use ($gateway, $user, $plan, $billing): string {
-            $payment = $this->createPayment($gateway, $user, $plan, $billing);
+        return DB::transaction(function () use ($gateway, $user, $email, $plan, $billing): CheckoutSession {
+            $payment = $this->createPayment($gateway, $user, mb_strtolower(trim($email)), $plan, $billing);
 
-            return $gateway->checkoutUrl($payment);
+            return new CheckoutSession($payment, $gateway->checkoutUrl($payment));
         });
     }
 
     /**
      * @param  array<string, ?string>  $billing
      */
-    private function createPayment(PaymentGateway $gateway, User $user, Plan $plan, array $billing): Payment
+    private function createPayment(PaymentGateway $gateway, ?User $user, string $email, Plan $plan, array $billing): Payment
     {
         $payment = Payment::create([
-            'user_id' => $user->id,
+            'user_id' => $user?->id,
+            'email' => $user?->email ?? $email,
             'plan_id' => $plan->id,
             'reference' => (string) Str::uuid(),
             'gateway' => $gateway->name(),
@@ -49,7 +51,7 @@ class CheckoutService
             'status' => PaymentStatus::Pending,
         ]);
 
-        if (! empty($billing['billing_name']) && ! $user->name) {
+        if ($user && ! empty($billing['billing_name']) && ! $user->name) {
             $user->update(['name' => $billing['billing_name']]);
         }
 

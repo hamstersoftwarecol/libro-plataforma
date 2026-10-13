@@ -42,13 +42,80 @@ class PaymentFlowTest extends TestCase
         $this->plan = Plan::factory()->create(['name' => 'Mensual', 'price' => 999]);
     }
 
-    public function test_customer_without_payment_is_sent_to_the_payment_form_after_login(): void
+    public function test_visitors_who_want_to_read_go_to_the_payment_form(): void
     {
-        $this->post(route('login.send'), ['email' => 'cliente@example.com']);
-        $this->post(route('login.verify.store'), ['code' => $this->lastCode()])->assertRedirect(route('book.start'));
-
         $this->get(route('book.start'))->assertRedirect(route('checkout.create'));
-        $this->get(route('checkout.create'))->assertOk()->assertSee('Completa tu pago')->assertSee('El fondo no era el final.')->assertSee('Mensual');
+        $this->get(route('checkout.create'))->assertOk()->assertSee('Completa tu pago')->assertSee('El fondo no era el final.');
+    }
+
+    public function test_guest_pays_then_account_is_created_and_signed_in_automatically(): void
+    {
+        $this->post(route('checkout.store'), $this->guestForm('nueva@example.com'));
+        $payment = Payment::sole();
+
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['email' => 'nueva@example.com']);
+
+        $this->post(URL::temporarySignedRoute('sandbox.complete', now()->addMinutes(5), $payment), ['outcome' => 'approve']);
+
+        $user = User::firstWhere('email', 'nueva@example.com');
+        $this->assertNotNull($user);
+        $this->assertSame('Ana Pérez', $user->name);
+        $this->assertTrue($payment->fresh()->created_account);
+        $this->assertTrue($user->hasActiveSubscription());
+
+        $this->get(route('checkout.show', $payment))->assertRedirect(route('reader.show', $this->book));
+        $this->assertAuthenticatedAs($user);
+        $this->get(route('reader.show', $this->book))->assertOk();
+    }
+
+    public function test_paying_with_an_existing_accounts_email_does_not_sign_in_automatically(): void
+    {
+        $admin = User::factory()->admin()->create(['email' => 'jefe@example.com']);
+
+        $this->post(route('checkout.store'), $this->guestForm('jefe@example.com'));
+        $payment = Payment::sole();
+        $this->post(URL::temporarySignedRoute('sandbox.complete', now()->addMinutes(5), $payment), ['outcome' => 'approve']);
+
+        $this->assertSame($admin->id, $payment->fresh()->user_id);
+        $this->assertFalse($payment->fresh()->created_account);
+
+        $this->get(route('checkout.show', $payment))->assertOk()->assertSee('Ingresar y leer')->assertSee('jefe@example.com');
+        $this->assertGuest();
+    }
+
+    public function test_another_browser_cannot_see_or_use_a_guest_payment(): void
+    {
+        $this->post(route('checkout.store'), $this->guestForm('nueva@example.com'));
+        $payment = Payment::sole();
+        $this->post(URL::temporarySignedRoute('sandbox.complete', now()->addMinutes(5), $payment), ['outcome' => 'approve']);
+
+        $this->flushSession();
+
+        $this->get(route('checkout.show', $payment))->assertNotFound();
+        $this->assertGuest();
+    }
+
+    public function test_unpaid_visitors_cannot_sign_in(): void
+    {
+        $this->post(route('login.send'), ['email' => 'curioso@example.com'])->assertSessionHasErrors('email');
+
+        Mail::assertNotSent(LoginCodeMail::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function guestForm(string $email): array
+    {
+        return [
+            'plan_id' => (string) $this->plan->id,
+            'email' => $email,
+            'email_confirmation' => $email,
+            'billing_name' => 'Ana Pérez',
+            'billing_country' => 'CO',
+            'terms' => '1',
+        ];
     }
 
     public function test_paying_customer_goes_straight_into_the_book(): void

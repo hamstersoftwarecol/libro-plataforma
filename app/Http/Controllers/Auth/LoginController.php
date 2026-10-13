@@ -29,6 +29,12 @@ class LoginController extends Controller
             'email' => ['required', 'string', 'email:rfc', 'max:255'],
         ]);
 
+        if (! $loginCodes->canSignIn($validated['email'])) {
+            return back()->withInput()->with('needs_purchase', true)->withErrors([
+                'email' => 'Para ingresar necesitas haber comprado el libro con este correo.',
+            ]);
+        }
+
         $loginCodes->send($validated['email'], $request->ip());
 
         $request->session()->put('login.email', $loginCodes->normalize($validated['email']));

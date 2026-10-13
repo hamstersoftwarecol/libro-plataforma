@@ -18,7 +18,7 @@ class BoldCheckoutController extends Controller
      */
     public function show(Request $request, Payment $payment, PaymentGatewayManager $gateways): View|RedirectResponse
     {
-        abort_unless($payment->user_id === $request->user()->id && $payment->gateway === 'bold', 404);
+        abort_unless($payment->belongsToVisitor($request) && $payment->gateway === 'bold', 404);
 
         if (! $payment->isPending()) {
             return redirect()->route('checkout.show', $payment);
@@ -28,7 +28,7 @@ class BoldCheckoutController extends Controller
         $gateway = $gateways->driver('bold');
 
         return view('checkout.bold', [
-            'payment' => $payment->load('plan', 'user'),
+            'payment' => $payment->load('plan'),
             'book' => Book::featured(),
             'button' => [
                 'api-key' => $gateway->identityKey(),
@@ -39,7 +39,7 @@ class BoldCheckoutController extends Controller
                 'redirection-url' => route('checkout.bold.return'),
                 'description' => mb_substr('Suscripción '.$payment->plan->name.' · '.config('app.name'), 0, 100),
                 'customer-data' => json_encode(array_filter([
-                    'email' => $payment->user->email,
+                    'email' => $payment->email,
                     'fullName' => $payment->billing_name,
                     'phone' => $payment->billing_phone ? preg_replace('/\D+/', '', $payment->billing_phone) : null,
                     'documentNumber' => $payment->billing_document,
@@ -59,9 +59,10 @@ class BoldCheckoutController extends Controller
     {
         $payment = Payment::query()
             ->where('reference', (string) $request->query('bold-order-id'))
-            ->where('user_id', $request->user()->id)
             ->where('gateway', 'bold')
             ->firstOrFail();
+
+        abort_unless($payment->belongsToVisitor($request), 404);
 
         $sync->sync($payment);
 

@@ -9,8 +9,9 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Http\Request;
 
-#[Fillable(['user_id', 'plan_id', 'subscription_id', 'reference', 'gateway', 'gateway_payment_id', 'amount', 'currency', 'billing_name', 'billing_document', 'billing_country', 'billing_phone', 'terms_accepted_at', 'status', 'failure_reason', 'paid_at'])]
+#[Fillable(['user_id', 'email', 'created_account', 'plan_id', 'subscription_id', 'reference', 'gateway', 'gateway_payment_id', 'amount', 'currency', 'billing_name', 'billing_document', 'billing_country', 'billing_phone', 'terms_accepted_at', 'status', 'failure_reason', 'paid_at'])]
 class Payment extends Model
 {
     /** @use HasFactory<PaymentFactory> */
@@ -28,6 +29,7 @@ class Payment extends Model
             'amount' => 'integer',
             'paid_at' => 'datetime',
             'terms_accepted_at' => 'datetime',
+            'created_account' => 'boolean',
         ];
     }
 
@@ -58,6 +60,31 @@ class Payment extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
+    }
+
+    public const SESSION_KEY = 'checkout.references';
+
+    /**
+     * Whether the current visitor started this payment: its account, or the browser session that created it.
+     */
+    public function belongsToVisitor(Request $request): bool
+    {
+        $startedInThisBrowser = in_array($this->reference, (array) $request->session()->get(self::SESSION_KEY, []), true);
+        $signedInAs = $request->user()?->id;
+
+        // A different signed-in account never sees someone else's payment, even in the same browser.
+        if ($signedInAs !== null && $this->user_id !== null) {
+            return $signedInAs === $this->user_id;
+        }
+
+        return $startedInThisBrowser || ($signedInAs !== null && $signedInAs === $this->user_id);
+    }
+
+    public function rememberInSession(Request $request): void
+    {
+        $references = array_slice([...(array) $request->session()->get(self::SESSION_KEY, []), $this->reference], -10);
+
+        $request->session()->put(self::SESSION_KEY, $references);
     }
 
     public function isPending(): bool

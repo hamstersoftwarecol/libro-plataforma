@@ -1,13 +1,13 @@
 <x-mail::message>
 # ¡Bienvenido!
 
-Tu cuenta en {{ config('app.name') }} está lista. No necesitas contraseña: cada vez que quieras entrar, te enviaremos un código a este correo.
+Tu pago fue confirmado y tu cuenta en {{ config('app.name') }} ya está lista.
 
-<x-mail::button :url="route('plans.index')">
-Ver planes
+No necesitas contraseña: cuando quieras volver, entra en **Ingresar** con este correo y te enviaremos un código de acceso.
+
+<x-mail::button :url="route('login')">
+Ingresar a mi biblioteca
 </x-mail::button>
-
-Con una suscripción activa puedes leer todo el catálogo desde tu navegador.
 
 {{ config('app.name') }}
 </x-mail::message>

@@ -3,10 +3,13 @@
 namespace App\Services\Payments;
 
 use App\Enums\PaymentStatus;
+use App\Enums\Role;
 use App\Enums\SubscriptionStatus;
 use App\Mail\PaymentFailedMail;
 use App\Mail\PaymentReceiptMail;
+use App\Mail\WelcomeMail;
 use App\Models\Payment;
+use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Services\AuditLogger;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -70,6 +73,35 @@ class WebhookProcessor
         });
     }
 
+    /**
+     * Guest checkouts get their account once the payment is confirmed. Existing accounts are linked, never replaced.
+     */
+    private function ensureAccount(Payment $payment): void
+    {
+        if ($payment->user_id) {
+            return;
+        }
+
+        $user = User::firstWhere('email', $payment->email);
+        $created = false;
+
+        if (! $user) {
+            $user = User::create([
+                'email' => $payment->email,
+                'name' => $payment->billing_name,
+                'role' => Role::Reader,
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]);
+            $created = true;
+            $this->auditLogger->log('user.created_from_payment', $user, ['payment' => $payment->reference], $user);
+            Mail::to($user)->queue(new WelcomeMail($user));
+        }
+
+        $payment->forceFill(['user_id' => $user->id, 'created_account' => $created])->save();
+        $payment->setRelation('user', $user);
+    }
+
     private function apply(Payment $payment, GatewayEvent $event): string
     {
         if ($event->amount !== $payment->amount || strtoupper($event->currency) !== strtoupper($payment->currency)) {
@@ -88,6 +120,7 @@ class WebhookProcessor
                 'gateway_payment_id' => $event->gatewayPaymentId,
                 'paid_at' => now(),
             ]);
+            $this->ensureAccount($payment);
             $this->auditLogger->log('payment.paid', $payment, ['event' => $event->id], $payment->user);
             $this->subscriptions->activateFromPayment($payment);
             Mail::to($payment->user)->queue(new PaymentReceiptMail($payment->fresh(['plan', 'subscription'])));
@@ -103,12 +136,12 @@ class WebhookProcessor
             ]);
             $this->auditLogger->log('payment.failed', $payment, ['event' => $event->id, 'reason' => $event->failureReason], $payment->user);
 
-            $payment->user->subscriptions()
+            $payment->user?->subscriptions()
                 ->where('status', SubscriptionStatus::Active)
                 ->where('ends_at', '<=', now())
                 ->update(['status' => SubscriptionStatus::PastDue]);
 
-            Mail::to($payment->user)->queue(new PaymentFailedMail($payment->fresh('plan')));
+            Mail::to($payment->user ?? $payment->email)->queue(new PaymentFailedMail($payment->fresh('plan')));
 
             return self::PROCESSED;
         }

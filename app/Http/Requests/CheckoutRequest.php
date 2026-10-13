@@ -10,7 +10,7 @@ class CheckoutRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return true;
     }
 
     /**
@@ -22,6 +22,7 @@ class CheckoutRequest extends FormRequest
     {
         return [
             'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_active', true)],
+            'email' => [$this->user() ? 'prohibited' : 'required', 'nullable', 'string', 'email:rfc', 'max:255', 'confirmed'],
             'billing_name' => ['required', 'string', 'min:3', 'max:255'],
             'billing_document' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9.\-\s]+$/'],
             'billing_country' => ['required', 'string', 'size:2', 'alpha'],
@@ -37,6 +38,7 @@ class CheckoutRequest extends FormRequest
     {
         return [
             'plan_id' => 'plan',
+            'email' => 'correo electrónico',
             'billing_name' => 'nombre completo',
             'billing_document' => 'documento de identidad',
             'billing_country' => 'país',
@@ -52,7 +54,16 @@ class CheckoutRequest extends FormRequest
     {
         return [
             'terms.accepted' => 'Debes aceptar los términos y condiciones para continuar.',
+            'email.confirmed' => 'Los dos correos no coinciden.',
         ];
+    }
+
+    /**
+     * Where the receipt and access go: the account's e-mail, or the one the guest typed.
+     */
+    public function buyerEmail(): string
+    {
+        return mb_strtolower(trim($this->user()?->email ?? (string) $this->validated('email')));
     }
 
     /**

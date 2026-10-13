@@ -33,6 +33,14 @@ Route::post('/webhooks/pagos/{gateway}', PaymentWebhookController::class)
     ->middleware('throttle:webhooks')
     ->name('webhooks.payments');
 
+// Buying does not require an account: it is created once the payment is confirmed.
+Route::get('/empezar', StartReadingController::class)->name('book.start');
+Route::get('/pagar', [CheckoutController::class, 'create'])->name('checkout.create');
+Route::post('/pagar', [CheckoutController::class, 'store'])->middleware('throttle:10,1')->name('checkout.store');
+Route::get('/pagos/bold/retorno', [BoldCheckoutController::class, 'return'])->name('checkout.bold.return');
+Route::get('/pagos/{payment}', [CheckoutController::class, 'show'])->name('checkout.show');
+Route::get('/pagar/bold/{payment}', [BoldCheckoutController::class, 'show'])->middleware('signed')->name('checkout.bold');
+
 Route::middleware('signed')->prefix('sandbox/pago/{payment}')->name('sandbox.')->group(function () {
     Route::get('/', [SandboxCheckoutController::class, 'show'])->name('checkout');
     Route::post('/', [SandboxCheckoutController::class, 'complete'])->name('complete');
@@ -48,13 +56,6 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/salir', [LoginController::class, 'destroy'])->name('logout');
-
-    Route::get('/empezar', StartReadingController::class)->name('book.start');
-    Route::get('/pagar', [CheckoutController::class, 'create'])->name('checkout.create');
-    Route::post('/pagar', [CheckoutController::class, 'store'])->middleware('throttle:10,1')->name('checkout.store');
-    Route::get('/pagos/{payment}', [CheckoutController::class, 'show'])->name('checkout.show');
-    Route::get('/pagar/bold/{payment}', [BoldCheckoutController::class, 'show'])->middleware('signed')->name('checkout.bold');
-    Route::get('/pagos/bold/retorno', [BoldCheckoutController::class, 'return'])->name('checkout.bold.return');
 
     Route::get('/cuenta', [AccountController::class, 'show'])->name('account');
     Route::post('/cuenta/suscripcion/cancelar', [AccountController::class, 'cancel'])->name('account.subscription.cancel');

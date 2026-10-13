@@ -3,7 +3,12 @@
     @switch($payment->status)
         @case(\App\Enums\PaymentStatus::Paid)
             <p class="-mt-4 text-zinc-600 dark:text-zinc-400">Tu plan <strong class="text-zinc-900 dark:text-white">{{ $payment->plan->name }}</strong> está activo hasta el <strong class="text-zinc-900 dark:text-white">{{ $payment->subscription?->ends_at->translatedFormat('j \d\e F \d\e Y') }}</strong>.</p>
-            <a href="{{ route('library') }}" class="btn btn-primary mt-8 w-full py-3">Empezar a leer <x-icon name="arrow-right" class="size-4" /></a>
+            @auth
+                <a href="{{ route('book.start') }}" class="btn btn-primary mt-8 w-full py-3">Empezar a leer <x-icon name="arrow-right" class="size-4" /></a>
+            @else
+                <p class="mt-4 text-sm text-zinc-400">Tu acceso quedó asociado a <strong class="text-zinc-200">{{ $payment->email }}</strong>. Ingresa con ese correo y recibirás un código.</p>
+                <a href="{{ route('login') }}" class="btn btn-primary mt-6 w-full py-3">Ingresar y leer <x-icon name="arrow-right" class="size-4" /></a>
+            @endauth
             @break
         @case(\App\Enums\PaymentStatus::Failed)
             <p class="-mt-4 text-zinc-600 dark:text-zinc-400">{{ $payment->failure_reason }}. No se realizó ningún cobro.</p>

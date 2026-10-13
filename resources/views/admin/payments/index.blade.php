@@ -23,7 +23,13 @@
                     @foreach ($payments as $payment)
                         <tr>
                             <td class="whitespace-nowrap text-zinc-500">{{ $payment->created_at->format('d/m/Y H:i') }}</td>
-                            <td><a href="{{ route('admin.customers.show', $payment->user) }}" class="flex items-center gap-2 font-medium hover:text-brand-600"><x-avatar :user="$payment->user" size="size-7" />{{ $payment->user->email }}</a></td>
+                            <td>
+                                @if ($payment->user)
+                                    <a href="{{ route('admin.customers.show', $payment->user) }}" class="flex items-center gap-2 font-medium hover:text-brand-600"><x-avatar :user="$payment->user" size="size-7" />{{ $payment->user->email }}</a>
+                                @else
+                                    <span class="flex items-center gap-2 text-zinc-400"><span class="grid size-7 place-items-center rounded-full bg-white/5 text-xs">?</span>{{ $payment->email }} <span class="text-xs">(sin cuenta aún)</span></span>
+                                @endif
+                            </td>
                             <td>{{ $payment->plan->name }}</td>
                             <td class="text-right font-semibold tabular-nums">{{ $payment->formattedAmount() }}</td>
                             <td>

@@ -14,7 +14,11 @@
             <div class="mb-10">
                 <p class="eyebrow">Paso final</p>
                 <h1 class="page-title mt-3">Completa tu pago</h1>
-                <p class="mt-2 text-zinc-400">Tu acceso al libro se activa en cuanto se confirme el pago.</p>
+                <p class="mt-2 text-zinc-400">Tu acceso al libro se activa en cuanto se confirme el pago.
+                    @guest
+                        ¿Ya lo compraste? <a href="{{ route('login') }}" class="link">Ingresa aquí</a>.
+                    @endguest
+                </p>
             </div>
 
             <form method="POST" action="{{ route('checkout.store') }}" class="grid gap-8 lg:grid-cols-[1fr_380px]" id="checkout-form">
@@ -66,11 +70,24 @@
                                 <input id="billing_name" name="billing_name" value="{{ old('billing_name', $billing['billing_name']) }}" required autocomplete="name" class="input" placeholder="Como aparece en tu documento">
                                 @error('billing_name')<p class="error">{{ $message }}</p>@enderror
                             </div>
-                            <div>
-                                <label class="label">Correo electrónico</label>
-                                <input value="{{ auth()->user()->email }}" disabled class="input cursor-not-allowed opacity-60">
-                                <p class="hint">Aquí recibirás el recibo.</p>
-                            </div>
+                            @auth
+                                <div class="sm:col-span-2">
+                                    <label class="label">Correo electrónico</label>
+                                    <input value="{{ auth()->user()->email }}" disabled class="input cursor-not-allowed opacity-60">
+                                    <p class="hint">Aquí recibirás el recibo.</p>
+                                </div>
+                            @else
+                                <div>
+                                    <label for="email" class="label">Correo electrónico *</label>
+                                    <input id="email" name="email" type="email" value="{{ old('email') }}" required autocomplete="email" class="input" placeholder="tu@correo.com">
+                                    @error('email')<p class="error">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label for="email_confirmation" class="label">Confirma tu correo *</label>
+                                    <input id="email_confirmation" name="email_confirmation" type="email" value="{{ old('email_confirmation') }}" required autocomplete="email" class="input" placeholder="tu@correo.com" onpaste="return false">
+                                </div>
+                                <p class="hint -mt-2 sm:col-span-2">Con este correo se crea tu cuenta al confirmarse el pago y con él ingresarás después. Revisa que esté bien escrito.</p>
+                            @endauth
                             <div>
                                 <label for="billing_document" class="label">Documento de identidad</label>
                                 <input id="billing_document" name="billing_document" value="{{ old('billing_document', $billing['billing_document']) }}" maxlength="30" class="input" placeholder="Opcional">

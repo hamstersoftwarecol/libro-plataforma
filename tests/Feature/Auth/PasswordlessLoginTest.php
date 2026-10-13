@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Enums\Role;
 use App\Mail\LoginCodeMail;
 use App\Models\AuditLog;
 use App\Models\LoginCode;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Services\LoginCodeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,19 +17,24 @@ class PasswordlessLoginTest extends TestCase
 {
     use RefreshDatabase;
 
+    private User $customer;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         Mail::fake();
+
+        $this->customer = User::factory()->create(['email' => 'lector@example.com']);
+        Subscription::factory()->for($this->customer)->create();
     }
 
-    public function test_login_page_is_displayed(): void
+    public function test_login_page_is_displayed_with_a_link_to_buy(): void
     {
-        $this->get(route('login'))->assertOk()->assertSee('Correo electrónico');
+        $this->get(route('login'))->assertOk()->assertSee('Correo electrónico')->assertSee('Cómpralo aquí');
     }
 
-    public function test_requesting_a_code_sends_an_email_and_stores_a_hashed_code(): void
+    public function test_paying_customer_receives_a_hashed_code(): void
     {
         $this->post(route('login.send'), ['email' => '  Lector@Example.com '])
             ->assertRedirect(route('login.verify'))
@@ -40,7 +45,35 @@ class PasswordlessLoginTest extends TestCase
         $loginCode = LoginCode::sole();
         $this->assertSame('lector@example.com', $loginCode->email);
         $this->assertNotSame($code, $loginCode->code_hash);
-        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_unknown_emails_cannot_sign_in_and_are_invited_to_buy(): void
+    {
+        $this->post(route('login.send'), ['email' => 'nuevo@example.com'])
+            ->assertSessionHasErrors(['email' => 'Para ingresar necesitas haber comprado el libro con este correo.'])
+            ->assertSessionHas('needs_purchase', true);
+
+        Mail::assertNothingSent();
+        $this->assertDatabaseMissing('users', ['email' => 'nuevo@example.com']);
+        $this->from(route('login'))->followingRedirects()->post(route('login.send'), ['email' => 'nuevo@example.com'])->assertSee('Cómpralo y empieza a leer');
+    }
+
+    public function test_customers_without_an_active_subscription_cannot_sign_in(): void
+    {
+        $expired = User::factory()->create(['email' => 'vencido@example.com']);
+        Subscription::factory()->for($expired)->expired()->create();
+
+        $this->post(route('login.send'), ['email' => 'vencido@example.com'])->assertSessionHasErrors('email');
+
+        Mail::assertNothingSent();
+    }
+
+    public function test_staff_can_sign_in_without_a_subscription(): void
+    {
+        User::factory()->admin()->create(['email' => 'admin@example.com']);
+
+        $this->post(route('login.send'), ['email' => 'admin@example.com']);
+        $this->post(route('login.verify.store'), ['code' => $this->sentCodeFor('admin@example.com')])->assertRedirect(route('admin.dashboard'));
     }
 
     public function test_mail_server_failure_shows_a_friendly_error_instead_of_crashing(): void
@@ -59,30 +92,17 @@ class PasswordlessLoginTest extends TestCase
         Mail::assertNothingSent();
     }
 
-    public function test_valid_code_creates_the_user_and_logs_in(): void
+    public function test_valid_code_logs_the_customer_in(): void
     {
-        $this->post(route('login.send'), ['email' => 'nuevo@example.com']);
-        $code = $this->sentCodeFor('nuevo@example.com');
+        $this->post(route('login.send'), ['email' => 'lector@example.com']);
 
-        $this->post(route('login.verify.store'), ['code' => $code])->assertRedirect(route('book.start'));
+        $this->post(route('login.verify.store'), ['code' => $this->sentCodeFor('lector@example.com')])->assertRedirect(route('book.start'));
 
-        $user = User::where('email', 'nuevo@example.com')->sole();
-        $this->assertAuthenticatedAs($user);
-        $this->assertSame(Role::Reader, $user->role);
-        $this->assertNotNull($user->email_verified_at);
+        $this->assertAuthenticatedAs($this->customer);
+        $this->assertNotNull($this->customer->fresh()->last_login_at);
         $this->assertNotNull(LoginCode::sole()->consumed_at);
-        $this->assertTrue(AuditLog::where('action', 'auth.login')->where('user_id', $user->id)->exists());
-    }
-
-    public function test_existing_admin_is_redirected_to_admin_dashboard(): void
-    {
-        User::factory()->admin()->create(['email' => 'admin@example.com']);
-
-        $this->post(route('login.send'), ['email' => 'admin@example.com']);
-        $code = $this->sentCodeFor('admin@example.com');
-
-        $this->post(route('login.verify.store'), ['code' => $code])->assertRedirect(route('admin.dashboard'));
-        $this->assertDatabaseCount('users', 1);
+        $this->assertTrue(AuditLog::where('action', 'auth.login')->where('user_id', $this->customer->id)->exists());
+        $this->assertSame(1, User::count());
     }
 
     public function test_code_cannot_be_reused(): void
@@ -152,12 +172,12 @@ class PasswordlessLoginTest extends TestCase
 
     public function test_inactive_user_cannot_log_in(): void
     {
-        User::factory()->inactive()->create(['email' => 'bloqueado@example.com']);
+        $blocked = User::factory()->inactive()->create(['email' => 'bloqueado@example.com']);
+        Subscription::factory()->for($blocked)->create();
 
-        $this->post(route('login.send'), ['email' => 'bloqueado@example.com']);
-        $code = $this->sentCodeFor('bloqueado@example.com');
+        $this->post(route('login.send'), ['email' => 'bloqueado@example.com'])->assertSessionHasErrors('email');
 
-        $this->post(route('login.verify.store'), ['code' => $code])->assertSessionHasErrors('code');
+        Mail::assertNothingSent();
         $this->assertGuest();
     }
 
@@ -168,7 +188,7 @@ class PasswordlessLoginTest extends TestCase
 
     public function test_user_can_log_out(): void
     {
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->customer)
             ->post(route('logout'))
             ->assertRedirect(route('home'));
 

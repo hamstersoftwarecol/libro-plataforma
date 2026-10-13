@@ -32,6 +32,13 @@ class PaymentFactory extends Factory
         ];
     }
 
+    public function configure(): static
+    {
+        return $this->afterMaking(function (Payment $payment): void {
+            $payment->email ??= User::find($payment->user_id)?->email;
+        });
+    }
+
     public function paid(): static
     {
         return $this->state(fn (array $attributes) => [

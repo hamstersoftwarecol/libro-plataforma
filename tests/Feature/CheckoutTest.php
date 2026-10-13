@@ -51,10 +51,28 @@ class CheckoutTest extends TestCase
         $this->assertDatabaseCount('payments', 0);
     }
 
-    public function test_guests_must_log_in_to_pay(): void
+    public function test_guests_can_open_the_payment_form_and_must_give_an_email(): void
     {
-        $this->post(route('checkout.store'), $this->form(Plan::factory()->create()))->assertRedirect(route('login'));
-        $this->get(route('checkout.create'))->assertRedirect(route('login'));
+        $plan = Plan::factory()->create();
+
+        $this->get(route('checkout.create'))->assertOk()->assertSee('Confirma tu correo');
+        $this->post(route('checkout.store'), $this->form($plan))->assertSessionHasErrors('email');
+        $this->post(route('checkout.store'), $this->form($plan, ['email' => 'ana@example.com', 'email_confirmation' => 'otro@example.com']))->assertSessionHasErrors('email');
+
+        $this->post(route('checkout.store'), $this->form($plan, ['email' => 'Ana@Example.com', 'email_confirmation' => 'Ana@Example.com']))->assertRedirect();
+
+        $payment = Payment::sole();
+        $this->assertNull($payment->user_id);
+        $this->assertSame('ana@example.com', $payment->email);
+        $this->assertDatabaseMissing('users', ['email' => 'ana@example.com']);
+    }
+
+    public function test_signed_in_customers_cannot_override_their_email(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post(route('checkout.store'), $this->form(Plan::factory()->create(), ['email' => 'otro@example.com', 'email_confirmation' => 'otro@example.com']))
+            ->assertSessionHasErrors('email');
     }
 
     public function test_sandbox_approval_activates_the_subscription(): void

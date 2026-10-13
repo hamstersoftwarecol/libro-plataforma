@@ -2,9 +2,7 @@
 
 namespace App\Services;
 
-use App\Enums\Role;
 use App\Mail\LoginCodeMail;
-use App\Mail\WelcomeMail;
 use App\Models\LoginCode;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -99,7 +97,13 @@ class LoginCodeService
 
         $loginCode->update(['consumed_at' => now()]);
 
-        $user = User::firstOrCreate(['email' => $email], ['role' => Role::Reader, 'is_active' => true]);
+        $user = User::firstWhere('email', $email);
+
+        if (! $user || ! $this->canSignIn($email)) {
+            throw ValidationException::withMessages([
+                'code' => 'Para ingresar necesitas haber comprado el libro con este correo.',
+            ]);
+        }
 
         if (! $user->is_active) {
             throw ValidationException::withMessages([
@@ -112,12 +116,19 @@ class LoginCodeService
             'last_login_at' => now(),
         ])->save();
 
-        if ($user->wasRecentlyCreated) {
-            $this->auditLogger->log('user.created', $user, user: $user);
-            Mail::to($user)->queue(new WelcomeMail($user));
-        }
-
         return $user;
+    }
+
+    /**
+     * Only staff and customers with paid, active access may sign in. Everyone else buys first.
+     */
+    public function canSignIn(string $email): bool
+    {
+        $user = User::firstWhere('email', $this->normalize($email));
+
+        return $user !== null
+            && $user->is_active
+            && ($user->can('access-admin') || $user->hasActiveSubscription());
     }
 
     public function normalize(string $email): string

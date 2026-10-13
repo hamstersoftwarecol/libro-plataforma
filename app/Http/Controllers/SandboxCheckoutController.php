@@ -21,7 +21,7 @@ class SandboxCheckoutController extends Controller
     {
         abort_unless($payment->gateway === 'sandbox' && config('payments.gateways.sandbox.enabled'), 404);
 
-        return view('checkout.sandbox', ['payment' => $payment->load('plan', 'user')]);
+        return view('checkout.sandbox', ['payment' => $payment->load('plan')]);
     }
 
     /**

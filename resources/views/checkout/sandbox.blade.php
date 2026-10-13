@@ -2,7 +2,7 @@
     <div class="-mt-2 rounded-2xl bg-gradient-to-br from-zinc-900 to-brand-950 p-6 text-white shadow-lift">
         <p class="text-xs tracking-widest text-white/60 uppercase">{{ $payment->plan->name }}</p>
         <p class="mt-2 font-display text-4xl font-semibold tabular-nums">{{ $payment->formattedAmount() }}</p>
-        <p class="mt-6 truncate text-sm text-white/70">{{ $payment->user->email }}</p>
+        <p class="mt-6 truncate text-sm text-white/70">{{ $payment->email }}</p>
     </div>
 
     @if ($payment->isPending())
