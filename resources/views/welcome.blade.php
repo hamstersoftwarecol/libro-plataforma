@@ -182,12 +182,6 @@
             <h2 class="cine-reveal font-display text-[clamp(2.75rem,7vw,5.5rem)] leading-[1] font-light tracking-tight">
                 Tu historia también puede <span class="font-semibold text-ember-300 italic">empezar de nuevo</span>.
             </h2>
-            <p class="cine-reveal mx-auto mt-8 max-w-xl text-lg text-paper/70" style="--delay: 200ms">
-                Lee «{{ rtrim($title, '.') }}» completo desde tu navegador, sin descargas y sin contraseñas.
-                @if ($featured?->formattedPrice())
-                    <strong class="text-paper">{{ $featured->formattedPrice() }}</strong>, un solo pago y es tuyo para siempre.
-                @endif
-            </p>
             <div class="cine-reveal mt-12 flex flex-wrap items-center justify-center gap-4" style="--delay: 400ms">
                 <a href="{{ $readUrl }}" class="group inline-flex items-center gap-3 rounded-full bg-paper px-9 py-4 text-base font-semibold text-night transition hover:bg-white">
                     Empezar a leer ahora <x-icon name="arrow-right" class="size-5 transition group-hover:translate-x-1" />
