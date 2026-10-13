@@ -131,6 +131,14 @@ class LoginCodeService
             && ($user->can('access-admin') || $user->hasActiveSubscription());
     }
 
+    /**
+     * An account an administrator deactivated: it must not be sent to buy again.
+     */
+    public function isBlocked(string $email): bool
+    {
+        return User::query()->where('email', $this->normalize($email))->where('is_active', false)->exists();
+    }
+
     public function normalize(string $email): string
     {
         return mb_strtolower(trim($email));

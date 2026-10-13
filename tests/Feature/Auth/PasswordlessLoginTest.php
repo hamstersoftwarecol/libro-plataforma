@@ -47,15 +47,20 @@ class PasswordlessLoginTest extends TestCase
         $this->assertNotSame($code, $loginCode->code_hash);
     }
 
-    public function test_unknown_emails_cannot_sign_in_and_are_invited_to_buy(): void
+    public function test_unregistered_emails_are_sent_to_the_payment_form_with_their_email(): void
     {
-        $this->post(route('login.send'), ['email' => 'nuevo@example.com'])
-            ->assertSessionHasErrors(['email' => 'Para ingresar necesitas haber comprado el libro con este correo.'])
-            ->assertSessionHas('needs_purchase', true);
+        $this->post(route('login.send'), ['email' => ' Nuevo@Example.com '])
+            ->assertRedirect(route('checkout.create'))
+            ->assertSessionHas('status')
+            ->assertSessionHasInput('email', 'nuevo@example.com')
+            ->assertSessionHasInput('email_confirmation', 'nuevo@example.com');
 
         Mail::assertNothingSent();
         $this->assertDatabaseMissing('users', ['email' => 'nuevo@example.com']);
-        $this->from(route('login'))->followingRedirects()->post(route('login.send'), ['email' => 'nuevo@example.com'])->assertSee('Cómpralo y empieza a leer');
+
+        $this->get(route('checkout.create'))
+            ->assertSee('Aún no tienes acceso con este correo')
+            ->assertSee('value="nuevo@example.com"', false);
     }
 
     public function test_customers_without_an_active_subscription_cannot_sign_in(): void
@@ -63,7 +68,7 @@ class PasswordlessLoginTest extends TestCase
         $expired = User::factory()->create(['email' => 'vencido@example.com']);
         Subscription::factory()->for($expired)->expired()->create();
 
-        $this->post(route('login.send'), ['email' => 'vencido@example.com'])->assertSessionHasErrors('email');
+        $this->post(route('login.send'), ['email' => 'vencido@example.com'])->assertRedirect(route('checkout.create'));
 
         Mail::assertNothingSent();
     }
@@ -175,7 +180,8 @@ class PasswordlessLoginTest extends TestCase
         $blocked = User::factory()->inactive()->create(['email' => 'bloqueado@example.com']);
         Subscription::factory()->for($blocked)->create();
 
-        $this->post(route('login.send'), ['email' => 'bloqueado@example.com'])->assertSessionHasErrors('email');
+        $this->post(route('login.send'), ['email' => 'bloqueado@example.com'])
+            ->assertSessionHasErrors(['email' => 'Tu cuenta está desactivada. Contacta al soporte.']);
 
         Mail::assertNothingSent();
         $this->assertGuest();

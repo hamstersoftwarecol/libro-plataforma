@@ -30,9 +30,15 @@ class LoginController extends Controller
         ]);
 
         if (! $loginCodes->canSignIn($validated['email'])) {
-            return back()->withInput()->with('needs_purchase', true)->withErrors([
-                'email' => 'Para ingresar necesitas haber comprado el libro con este correo.',
-            ]);
+            if ($loginCodes->isBlocked($validated['email'])) {
+                return back()->withInput()->withErrors(['email' => 'Tu cuenta está desactivada. Contacta al soporte.']);
+            }
+
+            $email = $loginCodes->normalize($validated['email']);
+
+            return redirect()->route('checkout.create')
+                ->withInput(['email' => $email, 'email_confirmation' => $email])
+                ->with('status', 'Aún no tienes acceso con este correo. Completa tu pago y tu cuenta se creará automáticamente.');
         }
 
         $loginCodes->send($validated['email'], $request->ip());

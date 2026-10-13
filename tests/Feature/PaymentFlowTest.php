@@ -98,7 +98,7 @@ class PaymentFlowTest extends TestCase
 
     public function test_unpaid_visitors_cannot_sign_in(): void
     {
-        $this->post(route('login.send'), ['email' => 'curioso@example.com'])->assertSessionHasErrors('email');
+        $this->post(route('login.send'), ['email' => 'curioso@example.com'])->assertRedirect(route('checkout.create'));
 
         Mail::assertNotSent(LoginCodeMail::class);
     }

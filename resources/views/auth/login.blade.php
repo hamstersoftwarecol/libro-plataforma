@@ -8,12 +8,6 @@
                 <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus autocomplete="email" placeholder="tu@correo.com" class="input py-3 pl-10">
             </div>
             @error('email')<p class="error">{{ $message }}</p>@enderror
-            @if (session('needs_purchase'))
-                <a href="{{ route('checkout.create') }}" class="mt-3 flex items-center justify-between gap-3 rounded-xl bg-brand-500/10 px-4 py-3 text-sm text-brand-200 ring-1 ring-brand-500/40 transition hover:bg-brand-500/20">
-                    <span>¿Aún no tienes el libro? <strong class="text-white">Cómpralo y empieza a leer</strong></span>
-                    <x-icon name="arrow-right" class="size-4" />
-                </a>
-            @endif
         </div>
         <button type="submit" class="btn btn-primary w-full py-3">Enviarme el código <x-icon name="arrow-right" class="size-4" /></button>
     </form>
