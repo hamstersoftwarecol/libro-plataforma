@@ -126,7 +126,7 @@
                                 </div>
 
                                 <label class="flex items-start gap-3 rounded-xl bg-white/[0.03] p-3 text-xs leading-relaxed text-zinc-400">
-                                    <input type="checkbox" name="terms" value="1" class="checkbox mt-0.5" @checked(old('terms')) required>
+                                    <input type="checkbox" name="terms" value="1" class="checkbox mt-0.5" @checked(old('terms', true)) required>
                                     <span>Acepto los términos y condiciones y entiendo que el acceso es personal y solo para lectura en línea.</span>
                                 </label>
                                 @error('terms')<p class="error">{{ $message }}</p>@enderror
