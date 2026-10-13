@@ -67,6 +67,17 @@ class CheckoutTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'ana@example.com']);
     }
 
+    public function test_unconfigured_gateway_shows_a_friendly_error(): void
+    {
+        config(['payments.gateway' => 'sandbox', 'payments.gateways.sandbox.enabled' => false]);
+
+        $this->actingAs(User::factory()->create())
+            ->post(route('checkout.store'), $this->form(Plan::factory()->create()))
+            ->assertSessionHasErrors(['plan_id' => 'Los pagos no están disponibles en este momento. Inténtalo más tarde.']);
+
+        $this->assertDatabaseCount('payments', 0);
+    }
+
     public function test_signed_in_customers_cannot_override_their_email(): void
     {
         $user = User::factory()->create();

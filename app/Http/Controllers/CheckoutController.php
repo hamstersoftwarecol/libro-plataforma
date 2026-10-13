@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
+use InvalidArgumentException;
 use RuntimeException;
 
 class CheckoutController extends Controller
@@ -58,6 +59,10 @@ class CheckoutController extends Controller
             report($exception);
 
             return back()->withInput()->withErrors(['plan_id' => $exception->getMessage()]);
+        } catch (InvalidArgumentException $exception) {
+            report($exception);
+
+            return back()->withInput()->withErrors(['plan_id' => 'Los pagos no están disponibles en este momento. Inténtalo más tarde.']);
         }
     }
 

@@ -30,12 +30,20 @@
                         </div>
                     @endif
 
-                    <div class="flex min-h-14 justify-center" id="bold-button-container">
-                        <script data-bold-button="dark-L"
+                    <div class="flex min-h-14 flex-col items-center justify-center gap-3" id="bold-button-container">
+                        {{-- Bold's library is loaded by the button script itself, so it is always available before the button renders. --}}
+                        <script src="{{ $scriptUrl }}" data-bold-button="dark-L"
                             @foreach ($button as $attribute => $value)
                                 data-{{ $attribute }}="{{ $value }}"
                             @endforeach
                         ></script>
+                        <p id="bold-loading" class="flex items-center gap-2 text-sm text-zinc-400">
+                            <span class="size-4 animate-spin rounded-full border-2 border-zinc-600 border-t-brand-500"></span>Cargando la pasarela de Bold…
+                        </p>
+                    </div>
+                    <div id="bold-help" class="hidden rounded-xl bg-amber-500/10 p-4 text-xs leading-relaxed text-amber-200 ring-1 ring-amber-500/30">
+                        <p class="font-semibold">¿No aparece el botón de pago?</p>
+                        <p class="mt-1">Desactiva el bloqueador de anuncios para este sitio y <button type="button" class="underline" onclick="location.reload()">recarga la página</button>. Si continúa, escríbenos indicando la referencia {{ $payment->reference }}.</p>
                     </div>
 
                     <p class="flex items-center justify-center gap-2 text-center text-xs text-zinc-500">
@@ -48,5 +56,19 @@
         </div>
     </section>
 
-    <script src="{{ $scriptUrl }}"></script>
+    <script>
+        (() => {
+            const container = document.getElementById('bold-button-container');
+            const rendered = () => container.querySelector('bold-payment-button, iframe, button');
+            const done = () => document.getElementById('bold-loading')?.remove();
+            const observer = new MutationObserver(() => { if (rendered()) { done(); observer.disconnect(); } });
+            observer.observe(container, { childList: true, subtree: true });
+            setTimeout(() => {
+                if (! rendered()) {
+                    done();
+                    document.getElementById('bold-help').classList.remove('hidden');
+                }
+            }, 8000);
+        })();
+    </script>
 </x-app-layout>

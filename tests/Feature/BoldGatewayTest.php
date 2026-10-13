@@ -59,7 +59,7 @@ class BoldGatewayTest extends TestCase
             ->assertSee('data-currency="COP"', false)
             ->assertSee('data-integrity-signature="'.$expectedSignature.'"', false)
             ->assertSee('data-redirection-url="'.route('checkout.bold.return').'"', false)
-            ->assertSee('checkout.bold.co/library/boldPaymentButton.js')
+            ->assertSee('<script src="https://checkout.bold.co/library/boldPaymentButton.js" data-bold-button="dark-L"', false)
             ->assertDontSee(self::SECRET);
     }
 
