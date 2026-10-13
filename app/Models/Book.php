@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BookFormat;
 use App\Enums\BookStatus;
 use App\Models\Concerns\HasSlug;
+use App\Services\Payments\Money;
 use Database\Factories\BookFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['category_id', 'title', 'subtitle', 'description', 'isbn', 'language', 'published_year', 'page_count'])]
+#[Fillable(['category_id', 'title', 'subtitle', 'description', 'isbn', 'language', 'published_year', 'page_count', 'price', 'currency'])]
 #[Hidden(['file_path', 'file_hash', 'reading_units'])]
 class Book extends Model
 {
@@ -36,6 +37,7 @@ class Book extends Model
             'published_year' => 'integer',
             'page_count' => 'integer',
             'file_size' => 'integer',
+            'price' => 'integer',
             'file_encrypted' => 'boolean',
             'reading_units' => 'array',
         ];
@@ -76,6 +78,29 @@ class Book extends Model
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class);
+    }
+
+    /**
+     * Readers who own this book for life.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function owners(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class)->withPivot(['payment_id', 'granted_by', 'granted_at'])->withTimestamps();
+    }
+
+    /**
+     * Published, with a file and a price: it can be bought.
+     */
+    public function isForSale(): bool
+    {
+        return $this->isPublished() && $this->hasFile() && $this->price !== null && $this->price > 0;
+    }
+
+    public function formattedPrice(): ?string
+    {
+        return $this->price ? Money::format($this->price, $this->currency) : null;
     }
 
     /**

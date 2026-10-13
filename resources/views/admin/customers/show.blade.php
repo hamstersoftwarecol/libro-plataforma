@@ -10,33 +10,37 @@
 
     <div class="grid gap-6 lg:grid-cols-2">
         <section class="card">
-            <div class="card-header"><h2 class="card-title">Acceso actual</h2>
-                @if ($currentSubscription)<span class="{{ $currentSubscription->status->badgeClasses() }}">{{ $currentSubscription->status->label() }}</span>@endif
-            </div>
-            <div class="card-body">
-                @if ($currentSubscription)
-                    <p class="text-xl font-semibold">{{ $currentSubscription->plan?->name ?? 'Cortesía' }}</p>
-                    <p class="mt-1 text-sm text-zinc-500">Hasta el {{ $currentSubscription->ends_at->translatedFormat('j \d\e F \d\e Y') }} · {{ $currentSubscription->auto_renew ? 'con renovación' : 'sin renovación' }}</p>
-                    <div class="mt-4 flex flex-wrap gap-2">
-                        @if ($currentSubscription->status === \App\Enums\SubscriptionStatus::Active)
-                            <form method="POST" action="{{ route('admin.customers.cancel', $customer) }}">@csrf<button class="btn btn-secondary btn-sm">Cancelar renovación</button></form>
-                        @endif
-                        <form method="POST" action="{{ route('admin.customers.revoke', $customer) }}" onsubmit="return confirm('¿Quitar el acceso de inmediato?')">@csrf<button class="btn btn-danger btn-sm">Revocar acceso ya</button></form>
-                    </div>
-                @else
-                    <p class="text-sm text-zinc-500">Sin acceso activo.</p>
-                @endif
-
-                <form method="POST" action="{{ route('admin.customers.extend', $customer) }}" class="mt-6 rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
+            <div class="card-header"><h2 class="card-title">Libros con acceso de por vida</h2><span class="text-xs text-zinc-500">{{ $books->count() }}</span></div>
+            <ul class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                @forelse ($books as $book)
+                    <li class="flex items-center gap-4 px-6 py-3">
+                        <x-book-cover :book="$book" compact class="w-8 shrink-0 rounded" />
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-medium">{{ $book->title }}</p>
+                            <p class="text-xs text-zinc-500">{{ $book->pivot->payment_id ? 'Comprado' : 'Otorgado' }} el {{ \Illuminate\Support\Carbon::parse($book->pivot->granted_at)->format('d/m/Y') }}</p>
+                        </div>
+                        <form method="POST" action="{{ route('admin.customers.books.revoke', [$customer, $book]) }}" onsubmit="return confirm('¿Quitar el acceso a este libro?')">
+                            @csrf @method('DELETE')
+                            <button class="btn btn-ghost btn-sm text-zinc-400 hover:text-red-500" title="Quitar acceso"><x-icon name="trash" class="size-4" /></button>
+                        </form>
+                    </li>
+                @empty
+                    <li><x-empty-state icon="book" title="No tiene libros" class="py-8" /></li>
+                @endforelse
+            </ul>
+            @if ($availableBooks->isNotEmpty())
+                <form method="POST" action="{{ route('admin.customers.books.grant', $customer) }}" class="flex flex-wrap items-end gap-2 border-t border-zinc-100 px-6 py-4 dark:border-zinc-800">
                     @csrf
-                    <p class="mb-3 flex items-center gap-2 text-sm font-semibold"><x-icon name="sparkles" class="size-4 text-brand-600" />Días de cortesía</p>
-                    <div class="flex flex-wrap items-end gap-2">
-                        <input type="number" name="days" min="1" max="365" value="7" required class="input input-sm w-20" aria-label="Días">
-                        <input name="reason" required maxlength="255" placeholder="Motivo (ej.: compensación)" class="input input-sm min-w-40 flex-1" aria-label="Motivo">
-                        <button class="btn btn-primary btn-sm">Extender</button>
-                    </div>
+                    <label class="min-w-48 flex-1 text-xs text-zinc-500">Dar acceso sin pago (regalo o compensación)
+                        <select name="book_id" class="input input-sm mt-1">
+                            @foreach ($availableBooks as $availableBook)
+                                <option value="{{ $availableBook->id }}">{{ $availableBook->title }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <button class="btn btn-primary btn-sm">Dar acceso</button>
                 </form>
-            </div>
+            @endif
         </section>
 
         <section class="card">
@@ -70,7 +74,7 @@
                         @foreach ($payments as $payment)
                             <tr>
                                 <td class="whitespace-nowrap text-zinc-500">{{ $payment->created_at->format('d/m/Y H:i') }}</td>
-                                <td class="font-medium">{{ $payment->plan->name }}</td>
+                                <td class="font-medium">{{ $payment->description() }}</td>
                                 <td class="text-right font-semibold tabular-nums">{{ $payment->formattedAmount() }}</td>
                                 <td><span class="{{ $payment->status->badgeClasses() }}">{{ $payment->status->label() }}</span></td>
                                 <td class="font-mono text-xs text-zinc-500">{{ $payment->reference }}</td>
@@ -82,17 +86,4 @@
         </div>
     </section>
 
-    <section class="mt-6">
-        <h2 class="mb-4 text-lg font-semibold">Historial de suscripciones</h2>
-        <div class="card divide-y divide-zinc-100 dark:divide-zinc-800">
-            @forelse ($subscriptions as $subscription)
-                <div class="flex flex-wrap items-center justify-between gap-2 px-6 py-3 text-sm">
-                    <span class="flex items-center gap-2 font-medium">{{ $subscription->plan?->name ?? 'Cortesía' }} <span class="{{ $subscription->status->badgeClasses() }}">{{ $subscription->status->label() }}</span></span>
-                    <span class="text-zinc-500 tabular-nums">{{ $subscription->starts_at->format('d/m/Y') }} → {{ $subscription->ends_at->format('d/m/Y') }}</span>
-                </div>
-            @empty
-                <x-empty-state icon="sparkles" title="Nunca se ha suscrito" class="py-8" />
-            @endforelse
-        </div>
-    </section>
 </x-admin-layout>

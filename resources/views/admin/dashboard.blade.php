@@ -35,11 +35,11 @@
 
         <div class="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
             @foreach ([
-                ['Suscriptores activos', $subscribers['active'], 'users'],
-                ['Nuevos este mes', '+'.$subscribers['new'], 'sparkles'],
-                ['Cancelaciones', $subscribers['cancelled'], 'ban'],
-                ['Pago pendiente', $subscribers['past_due'], 'warning'],
-                ['Ingreso recurrente mensual', $fmt($subscribers['mrr'][$currency] ?? 0), 'refresh'],
+                ['Libros vendidos este mes', $sales['month'], 'sparkles'],
+                ['Ventas totales', $sales['total'], 'banknotes'],
+                ['Compradores', $sales['buyers'], 'users'],
+                ['Accesos regalados', $sales['granted'], 'book'],
+                ['Pagos en curso (24 h)', $sales['pending'], 'clock'],
             ] as [$label, $value, $icon])
                 <div class="stat">
                     <div class="flex items-center justify-between"><p class="stat-label">{{ $label }}</p><x-icon :name="$icon" class="size-4 text-zinc-400" /></div>

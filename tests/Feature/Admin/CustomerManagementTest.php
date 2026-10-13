@@ -27,14 +27,15 @@ class CustomerManagementTest extends TestCase
 
     public function test_admin_lists_and_filters_customers(): void
     {
-        $subscribed = Subscription::factory()->create()->user;
+        $subscribed = User::factory()->create();
+        $subscribed->books()->attach(Book::factory()->published()->create()->id, ['granted_at' => now()]);
         $without = User::factory()->create();
         $staff = User::factory()->editor()->create();
 
         $this->actingAs($this->admin)->get(route('admin.customers.index'))
             ->assertOk()->assertSee($subscribed->email)->assertSee($without->email)->assertDontSee($staff->email);
 
-        $this->actingAs($this->admin)->get(route('admin.customers.index', ['status' => 'subscribed']))
+        $this->actingAs($this->admin)->get(route('admin.customers.index', ['status' => 'buyers']))
             ->assertSee($subscribed->email)->assertDontSee($without->email);
 
         $this->actingAs($this->admin)->get(route('admin.customers.index', ['status' => 'without']))
@@ -91,6 +92,22 @@ class CustomerManagementTest extends TestCase
 
         $this->actingAs($this->admin)->post(route('admin.customers.revoke', $customer));
         $this->assertFalse($customer->hasActiveSubscription());
+    }
+
+    public function test_admin_grants_and_revokes_lifetime_access_to_a_book(): void
+    {
+        $customer = User::factory()->create();
+        $book = Book::factory()->published()->create(['title' => 'Regalo']);
+
+        $this->actingAs($this->admin)->post(route('admin.customers.books.grant', $customer), ['book_id' => $book->id])->assertSessionHas('status');
+        $this->assertTrue($customer->ownsBook($book));
+        $this->assertNull($customer->books()->first()->pivot->payment_id);
+        $this->assertSame($this->admin->id, $customer->books()->first()->pivot->granted_by);
+        $this->actingAs($this->admin)->get(route('admin.customers.show', $customer))->assertSee('Regalo')->assertSee('Otorgado');
+
+        $this->actingAs($this->admin)->delete(route('admin.customers.books.revoke', [$customer, $book]));
+        $this->assertFalse($customer->ownsBook($book));
+        $this->assertDatabaseHas('audit_logs', ['action' => 'book.access_revoked']);
     }
 
     public function test_staff_accounts_cannot_be_managed_as_customers(): void

@@ -28,10 +28,10 @@ class ReaderController extends Controller
     public function show(Request $request, Book $book, AuditLogger $auditLogger): View|RedirectResponse
     {
         if (Gate::denies('read', $book)) {
-            abort_unless($book->isPublished() && $book->hasFile() && $request->user()->is_active && ! $request->user()->hasActiveSubscription(), 403);
+            abort_unless($book->isForSale() && $request->user()->is_active, 403);
 
-            return redirect()->route('checkout.create')
-                ->with('status', 'Necesitas un pago activo para leer «'.rtrim($book->title, '.').'».');
+            return redirect()->route('checkout.create', ['libro' => $book->slug])
+                ->with('status', 'Compra «'.rtrim($book->title, '.').'» para leerlo. Es un pago único con acceso de por vida.');
         }
 
         $session = $this->sessions->start($request->user(), $book, $request);

@@ -101,6 +101,8 @@ Route::middleware('auth')->group(function () {
             Route::get('/clientes/{customer}', [CustomerController::class, 'show'])->name('customers.show');
             Route::post('/clientes/{customer}/estado', [CustomerController::class, 'toggleActive'])->name('customers.toggle-active');
             Route::post('/clientes/{customer}/extender', [CustomerController::class, 'extend'])->name('customers.extend');
+            Route::post('/clientes/{customer}/libros', [CustomerController::class, 'grantBook'])->name('customers.books.grant');
+            Route::delete('/clientes/{customer}/libros/{book}', [CustomerController::class, 'revokeBook'])->name('customers.books.revoke');
             Route::post('/clientes/{customer}/cancelar', [CustomerController::class, 'cancelSubscription'])->name('customers.cancel');
             Route::post('/clientes/{customer}/revocar', [CustomerController::class, 'revokeSubscription'])->name('customers.revoke');
 

@@ -80,6 +80,11 @@
                         <x-book-cover :book="$book" class="transition duration-300 group-hover:-translate-y-1.5 group-hover:shadow-2xl" />
                         <h3 class="mt-3 line-clamp-2 text-sm leading-snug font-semibold group-hover:text-brand-600">{{ $book->title }}</h3>
                         <p class="mt-0.5 line-clamp-1 text-xs text-zinc-500">{{ $book->authorNames() }}</p>
+                        @if (in_array($book->id, $ownedIds, true))
+                            <span class="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-400"><x-icon name="check" class="size-3" stroke="2.5" />Tuyo</span>
+                        @elseif ($book->isForSale())
+                            <span class="mt-1.5 inline-block text-xs font-semibold text-brand-400 tabular-nums">{{ $book->formattedPrice() }}</span>
+                        @endif
                     </a>
                 @endforeach
             </div>

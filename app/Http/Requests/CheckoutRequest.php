@@ -21,7 +21,7 @@ class CheckoutRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_active', true)],
+            'book_id' => ['required', 'integer', Rule::exists('books', 'id')->where('status', 'published')->whereNotNull('price')],
             'email' => [$this->user() ? 'prohibited' : 'required', 'nullable', 'string', 'email:rfc', 'max:255', 'confirmed'],
             'billing_name' => ['required', 'string', 'min:3', 'max:255'],
             'billing_document' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9.\-\s]+$/'],
@@ -37,7 +37,7 @@ class CheckoutRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'plan_id' => 'plan',
+            'book_id' => 'libro',
             'email' => 'correo electrónico',
             'billing_name' => 'nombre completo',
             'billing_document' => 'documento de identidad',

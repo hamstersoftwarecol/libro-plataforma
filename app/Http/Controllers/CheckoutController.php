@@ -6,7 +6,6 @@ use App\Enums\PaymentStatus;
 use App\Http\Requests\CheckoutRequest;
 use App\Models\Book;
 use App\Models\Payment;
-use App\Models\Plan;
 use App\Services\AuditLogger;
 use App\Services\Payments\CheckoutService;
 use App\Services\Payments\PaymentStatusSync;
@@ -21,19 +20,21 @@ use RuntimeException;
 class CheckoutController extends Controller
 {
     /**
-     * Payment form: plan selection and billing details (HU-018).
+     * Payment form for one book: a single payment for lifetime access (HU-018).
      */
-    public function create(Request $request): View
+    public function create(Request $request): View|RedirectResponse
     {
-        $plans = Plan::available()->get();
+        $book = $this->bookToBuy($request);
         $user = $request->user();
+
+        if ($book && $user && Gate::allows('read', $book)) {
+            return redirect()->route('reader.show', $book)->with('status', 'Ya tienes este libro: puedes leerlo cuando quieras.');
+        }
+
         $lastPayment = $user?->payments()->whereNotNull('billing_name')->latest()->first();
 
         return view('checkout.form', [
-            'plans' => $plans,
-            'selectedPlanId' => (int) ($request->old('plan_id') ?? $plans->firstWhere('slug', $request->query('plan'))?->id ?? $plans->first()?->id),
-            'book' => Book::featured()?->load('authors'),
-            'currentSubscription' => $user?->currentSubscription(),
+            'book' => $book?->loadMissing('authors'),
             'billing' => [
                 'billing_name' => $lastPayment?->billing_name ?? $user?->name,
                 'billing_document' => $lastPayment?->billing_document,
@@ -48,26 +49,30 @@ class CheckoutController extends Controller
      */
     public function store(CheckoutRequest $request, CheckoutService $checkout): RedirectResponse
     {
-        $plan = Plan::findOrFail($request->validated('plan_id'));
+        $book = Book::findOrFail($request->validated('book_id'));
+
+        if ($request->user()?->ownsBook($book)) {
+            return redirect()->route('reader.show', $book)->with('status', 'Ya tienes este libro.');
+        }
 
         try {
-            $session = $checkout->start($request->user(), $request->buyerEmail(), $plan, $request->billing());
+            $session = $checkout->start($request->user(), $request->buyerEmail(), $book, $request->billing());
             $session->payment->rememberInSession($request);
 
             return redirect()->away($session->url);
         } catch (RuntimeException $exception) {
             report($exception);
 
-            return back()->withInput()->withErrors(['plan_id' => $exception->getMessage()]);
+            return back()->withInput()->withErrors(['book_id' => $exception->getMessage()]);
         } catch (InvalidArgumentException $exception) {
             report($exception);
 
-            return back()->withInput()->withErrors(['plan_id' => 'Los pagos no están disponibles en este momento. Inténtalo más tarde.']);
+            return back()->withInput()->withErrors(['book_id' => 'Los pagos no están disponibles en este momento. Inténtalo más tarde.']);
         }
     }
 
     /**
-     * Page the gateway returns to. Only the server-side webhook confirms the payment;
+     * Page the gateway returns to. Only the server-side confirmation grants access;
      * once it has, the customer goes straight into the book.
      */
     public function show(Request $request, Payment $payment, PaymentStatusSync $sync, AuditLogger $auditLogger): View|RedirectResponse
@@ -84,14 +89,24 @@ class CheckoutController extends Controller
         }
 
         if ($payment->status === PaymentStatus::Paid && $request->user() && ! $request->boolean('detalle')) {
-            $book = Book::featured();
+            $book = $payment->book ?? Book::featured();
 
             if ($book && Gate::allows('read', $book)) {
-                return redirect()->route('reader.show', $book)->with('status', '¡Pago confirmado! Bienvenido a tu libro.');
+                return redirect()->route('reader.show', $book)->with('status', '¡Pago confirmado! El libro es tuyo para siempre.');
             }
         }
 
-        return view('checkout.result', ['payment' => $payment->load('plan', 'subscription')]);
+        return view('checkout.result', ['payment' => $payment->load('plan', 'book', 'subscription')]);
+    }
+
+    /**
+     * ?libro=slug, or the featured book.
+     */
+    private function bookToBuy(Request $request): ?Book
+    {
+        $slug = (string) $request->query('libro', '');
+
+        return ($slug !== '' ? Book::published()->firstWhere('slug', $slug) : null) ?? Book::featured();
     }
 
     /**

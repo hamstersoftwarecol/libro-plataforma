@@ -7,7 +7,11 @@
             <div class="card overflow-hidden shadow-lift">
                 @if ($book)
                     <div class="flex items-center gap-5 bg-gradient-to-br from-brand-900/40 to-transparent p-6">
-                        <img src="{{ asset('images/flash.webp') }}" alt="" class="w-16 -rotate-3 drop-shadow-[0_15px_25px_rgba(0,0,0,0.7)]">
+                        @if ($book->cover_path)
+                            <img src="{{ $book->coverUrl() }}" alt="" class="w-16 -rotate-3 rounded drop-shadow-[0_15px_25px_rgba(0,0,0,0.7)]">
+                        @else
+                            <x-book-cover :book="$book" class="w-16 -rotate-3" />
+                        @endif
                         <div>
                             <p class="text-[11px] font-semibold tracking-[0.2em] text-brand-400 uppercase">Acceso inmediato</p>
                             <p class="mt-1 font-display text-lg leading-snug">{{ $book->title }}</p>
@@ -18,10 +22,9 @@
                 <div class="card-body space-y-6 border-t border-white/[0.06]">
                     <div class="flex items-end justify-between">
                         <div>
-                            <p class="text-sm text-zinc-400">{{ $payment->plan->name }}</p>
+                            <p class="text-sm text-zinc-400">Pago único · acceso de por vida</p>
                             <p class="font-display text-4xl font-semibold tabular-nums">{{ $payment->formattedAmount() }}</p>
                         </div>
-                        <span class="text-xs text-zinc-500">{{ $payment->plan->interval->perLabel() }}</span>
                     </div>
 
                     @if ($testMode)
@@ -52,7 +55,7 @@
                 </div>
             </div>
 
-            <a href="{{ route('checkout.create') }}" class="mt-6 flex items-center justify-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-200"><x-icon name="arrow-left" class="size-4" />Cambiar plan o datos</a>
+            <a href="{{ route('checkout.create', array_filter(['libro' => $book?->slug])) }}" class="mt-6 flex items-center justify-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-200"><x-icon name="arrow-left" class="size-4" />Cambiar plan o datos</a>
         </div>
     </section>
 

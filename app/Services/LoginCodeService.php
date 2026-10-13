@@ -120,7 +120,7 @@ class LoginCodeService
     }
 
     /**
-     * Only staff and customers with paid, active access may sign in. Everyone else buys first.
+     * Only staff and customers who bought a book (or still hold an old subscription) may sign in.
      */
     public function canSignIn(string $email): bool
     {
@@ -128,7 +128,7 @@ class LoginCodeService
 
         return $user !== null
             && $user->is_active
-            && ($user->can('access-admin') || $user->hasActiveSubscription());
+            && ($user->can('access-admin') || $user->ownsAnyBook() || $user->hasActiveSubscription());
     }
 
     /**

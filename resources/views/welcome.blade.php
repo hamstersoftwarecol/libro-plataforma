@@ -184,17 +184,16 @@
             </h2>
             <p class="cine-reveal mx-auto mt-8 max-w-xl text-lg text-paper/70" style="--delay: 200ms">
                 Lee «{{ rtrim($title, '.') }}» completo desde tu navegador, sin descargas y sin contraseñas.
-                @if ($cheapestPlan)
-                    Desde <strong class="text-paper">{{ $cheapestPlan->formattedPrice() }} {{ $cheapestPlan->interval->perLabel() }}</strong>, con acceso a toda la biblioteca.
+                @if ($featured?->formattedPrice())
+                    <strong class="text-paper">{{ $featured->formattedPrice() }}</strong>, un solo pago y es tuyo para siempre.
                 @endif
             </p>
             <div class="cine-reveal mt-12 flex flex-wrap items-center justify-center gap-4" style="--delay: 400ms">
                 <a href="{{ $readUrl }}" class="group inline-flex items-center gap-3 rounded-full bg-paper px-9 py-4 text-base font-semibold text-night transition hover:bg-white">
                     Empezar a leer ahora <x-icon name="arrow-right" class="size-5 transition group-hover:translate-x-1" />
                 </a>
-                <a href="{{ route('plans.index') }}" class="rounded-full px-7 py-4 text-sm font-medium text-paper/70 ring-1 ring-paper/25 transition hover:text-paper hover:ring-paper/60">Ver planes</a>
             </div>
-            <p class="cine-reveal mt-8 flex items-center justify-center gap-2 text-xs text-paper/40" style="--delay: 500ms"><x-icon name="lock" class="size-3.5" />Entras con un código enviado a tu correo · Cancela cuando quieras</p>
+            <p class="cine-reveal mt-8 flex items-center justify-center gap-2 text-xs text-paper/40" style="--delay: 500ms"><x-icon name="lock" class="size-3.5" />Pago único · acceso de por vida · sin contraseñas</p>
         </div>
     </section>
 
@@ -204,10 +203,10 @@
             <div class="mx-auto max-w-7xl">
                 <div class="cine-reveal flex flex-wrap items-end justify-between gap-4">
                     <div>
-                        <p class="text-xs font-semibold tracking-[0.35em] text-paper/40 uppercase">Con tu suscripción</p>
+                        <p class="text-xs font-semibold tracking-[0.35em] text-paper/40 uppercase">Más libros</p>
                         <h2 class="mt-4 font-display text-3xl font-light">También en la biblioteca</h2>
                     </div>
-                    <a href="{{ auth()->check() ? route('library') : route('plans.index') }}" class="text-sm text-paper/60 transition hover:text-paper">Ver todo el catálogo →</a>
+                    <a href="{{ auth()->check() ? route('library') : route('login') }}" class="text-sm text-paper/60 transition hover:text-paper">Ver todo el catálogo →</a>
                 </div>
                 <div class="mt-12 grid grid-cols-3 gap-6 sm:grid-cols-6">
                     @foreach ($books as $book)
@@ -224,7 +223,7 @@
         <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
             <p><span class="font-display text-paper/70">{{ config('app.name') }}</span> · © {{ now()->year }}</p>
             <div class="flex gap-6">
-                <a href="{{ route('plans.index') }}" class="hover:text-paper">Planes</a>
+                <a href="{{ route('book.start') }}" class="hover:text-paper">Comprar el libro</a>
                 <a href="{{ auth()->check() ? route('library') : route('login') }}" class="hover:text-paper">{{ auth()->check() ? 'Biblioteca' : 'Ingresar' }}</a>
             </div>
         </div>

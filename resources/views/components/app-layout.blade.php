@@ -15,7 +15,7 @@
             <a href="{{ route('home') }}" class="shrink-0"><x-logo /></a>
 
             @php
-                $links = [['route' => 'plans.index', 'label' => 'Planes', 'match' => 'plans.*']];
+                $links = [];
                 if (auth()->check()) {
                     array_unshift($links, ['route' => 'library', 'label' => 'Biblioteca', 'match' => 'library*']);
                 }
@@ -51,7 +51,6 @@
                             <div class="my-1 h-px bg-zinc-100 dark:bg-zinc-800"></div>
                             <a href="{{ route('library') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"><x-icon name="library" class="size-4 text-zinc-400" />Biblioteca</a>
                             <a href="{{ route('account') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"><x-icon name="user" class="size-4 text-zinc-400" />Mi cuenta</a>
-                            <a href="{{ route('plans.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-800"><x-icon name="sparkles" class="size-4 text-zinc-400" />Planes</a>
                             @can('access-admin')
                                 <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"><x-icon name="chart" class="size-4 text-zinc-400" />Administración</a>
                             @endcan
@@ -63,7 +62,6 @@
                         </div>
                     </details>
                 @else
-                    <a href="{{ route('plans.index') }}" class="btn btn-ghost btn-sm md:hidden">Planes</a>
                     <a href="{{ route('login') }}" class="btn btn-primary btn-sm">Ingresar</a>
                 @endauth
             </div>
@@ -81,7 +79,7 @@
         <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-zinc-500 sm:flex-row sm:px-6 lg:px-8">
             <x-logo class="opacity-80" />
             <div class="flex items-center gap-6">
-                <a href="{{ route('plans.index') }}" class="hover:text-zinc-900 dark:hover:text-white">Planes</a>
+                <a href="{{ route('book.start') }}" class="hover:text-zinc-900 dark:hover:text-white">Leer</a>
                 @auth<a href="{{ route('account') }}" class="hover:text-zinc-900 dark:hover:text-white">Mi cuenta</a>@endauth
                 <span>© {{ now()->year }} {{ config('app.name') }}</span>
             </div>

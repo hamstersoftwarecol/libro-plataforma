@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Request;
 
-#[Fillable(['user_id', 'email', 'created_account', 'plan_id', 'subscription_id', 'reference', 'gateway', 'gateway_payment_id', 'amount', 'currency', 'billing_name', 'billing_document', 'billing_country', 'billing_phone', 'terms_accepted_at', 'status', 'failure_reason', 'paid_at'])]
+#[Fillable(['user_id', 'email', 'created_account', 'plan_id', 'book_id', 'subscription_id', 'reference', 'gateway', 'gateway_payment_id', 'amount', 'currency', 'billing_name', 'billing_document', 'billing_country', 'billing_phone', 'terms_accepted_at', 'status', 'failure_reason', 'paid_at'])]
 class Payment extends Model
 {
     /** @use HasFactory<PaymentFactory> */
@@ -52,6 +52,26 @@ class Payment extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class);
+    }
+
+    /**
+     * @return BelongsTo<Book, $this>
+     */
+    public function book(): BelongsTo
+    {
+        return $this->belongsTo(Book::class);
+    }
+
+    /**
+     * What was bought, for receipts and listings.
+     */
+    public function description(): string
+    {
+        if ($this->book_id) {
+            return '«'.rtrim((string) $this->book?->title, '.').'» · acceso de por vida';
+        }
+
+        return 'Plan '.($this->plan?->name ?? '');
     }
 
     /**

@@ -122,12 +122,12 @@ class FinanceReport
     public function movementRows(): LazyCollection
     {
         return LazyCollection::make(function () {
-            $income = $this->paidPayments()->with(['user', 'plan'])->get()->map(fn (Payment $payment) => [
+            $income = $this->paidPayments()->with(['user', 'plan', 'book'])->get()->map(fn (Payment $payment) => [
                 'date' => $payment->paid_at->toImmutable(),
                 'type' => 'Ingreso',
-                'concept' => 'Suscripción '.$payment->plan->name,
-                'category' => 'Suscripciones',
-                'counterpart' => $payment->user->email,
+                'concept' => $payment->book_id ? 'Venta '.$payment->description() : 'Suscripción '.$payment->plan?->name,
+                'category' => $payment->book_id ? 'Venta de libros' : 'Suscripciones',
+                'counterpart' => $payment->user?->email ?? (string) $payment->email,
                 'amount' => $payment->amount,
                 'currency' => $payment->currency,
                 'reference' => $payment->reference,

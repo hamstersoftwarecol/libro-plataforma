@@ -155,13 +155,13 @@
                     <p class="text-xs text-zinc-500">Bold exige HTTPS público. En tu equipo local el webhook no llegará, pero el acceso se activa igual porque al volver de Bold el servidor consulta el pago directamente.</p>
                 </div>
 
-                @if ($payments['incompatible_plans']->isNotEmpty())
+                @if ($payments['incompatible_books']->isNotEmpty())
                     <div class="flex items-start gap-3 rounded-xl bg-amber-500/10 p-4 text-sm text-amber-200 ring-1 ring-amber-500/30">
                         <x-icon name="warning" class="size-5 text-amber-400" />
                         <div>
-                            <p class="font-semibold">Planes no compatibles con Bold</p>
-                            <p class="mt-1 text-xs leading-relaxed">Bold cobra en COP o USD sin decimales (mínimo $1.000 COP). Ajusta estos planes en <a href="{{ route('admin.plans.index') }}" class="underline">Planes</a>:
-                                {{ $payments['incompatible_plans']->map(fn ($plan) => $plan->name.' ('.$plan->formattedPrice().')')->join(', ') }}.</p>
+                            <p class="font-semibold">Libros con precio no compatible con Bold</p>
+                            <p class="mt-1 text-xs leading-relaxed">Bold cobra en COP o USD sin decimales (mínimo $1.000 COP). Ajusta el precio en <a href="{{ route('admin.books.index') }}" class="underline">Libros</a>:
+                                {{ $payments['incompatible_books']->map(fn ($book) => $book->title.' ('.$book->formattedPrice().')')->join(', ') }}.</p>
                         </div>
                     </div>
                 @endif

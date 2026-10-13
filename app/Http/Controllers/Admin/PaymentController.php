@@ -23,7 +23,7 @@ class PaymentController extends Controller
 
         return view('admin.payments.index', [
             'payments' => Payment::query()
-                ->with(['user', 'plan'])
+                ->with(['user', 'plan', 'book'])
                 ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
                 ->when($filters['q'] ?? null, fn ($query, string $term) => $query->where(fn ($query) => $query
                     ->where('reference', $term)

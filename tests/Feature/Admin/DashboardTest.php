@@ -14,7 +14,7 @@ class DashboardTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_sees_monthly_finances_and_subscribers(): void
+    public function test_admin_sees_monthly_finances_and_sales(): void
     {
         $this->travelTo(now()->setDate(2026, 10, 15));
         Payment::factory()->paid()->create(['amount' => 2000, 'currency' => 'USD']);
@@ -27,7 +27,7 @@ class DashboardTest extends TestCase
             ->get(route('admin.dashboard'))
             ->assertOk()
             ->assertViewHas('monthTotals', ['income' => 2000, 'expenses' => 500, 'net' => 1500])
-            ->assertViewHas('subscribers', fn (array $stats) => $stats['active'] === 1 && $stats['mrr']['USD'] === 1000)
+            ->assertViewHas('sales', fn (array $sales) => array_key_exists('month', $sales) && array_key_exists('buyers', $sales))
             ->assertViewHas('series', fn (array $series) => count($series) === 12 && $series[9]['income'] === 1000)
             ->assertSee('Resultado neto');
     }

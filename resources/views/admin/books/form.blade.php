@@ -73,6 +73,19 @@
 
         <aside class="space-y-6">
             <div class="card card-body">
+                <h2 class="card-title">Precio de venta</h2>
+                <p class="hint mt-1">Pago único con acceso de por vida. Déjalo vacío si no está a la venta.</p>
+                <div class="mt-4 grid grid-cols-[1fr_88px] gap-3">
+                    <input name="price" type="number" step="0.01" min="0" value="{{ old('price', $book->price ? \App\Services\Payments\Money::toMajor($book->price, $book->currency) : '') }}" class="input text-lg font-semibold tabular-nums" placeholder="Ej.: 50000" aria-label="Precio">
+                    <input name="currency" maxlength="3" value="{{ old('currency', $book->currency ?? 'COP') }}" required class="input text-lg uppercase" aria-label="Moneda">
+                </div>
+                <p class="hint">Con Bold: en COP, sin decimales y mínimo 1.000.</p>
+                @if ($book->exists)
+                    <p class="mt-3 text-sm {{ $book->isForSale() ? 'text-emerald-400' : 'text-zinc-500' }}">{{ $book->isForSale() ? 'A la venta por '.$book->formattedPrice() : 'No está a la venta' }}</p>
+                @endif
+            </div>
+
+            <div class="card card-body">
                 <h2 class="card-title">Portada</h2>
                 @if ($book->exists)
                     <x-book-cover :book="$book" class="mx-auto mt-4 w-36" />

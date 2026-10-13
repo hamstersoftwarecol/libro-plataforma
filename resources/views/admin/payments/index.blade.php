@@ -30,7 +30,7 @@
                                     <span class="flex items-center gap-2 text-zinc-400"><span class="grid size-7 place-items-center rounded-full bg-white/5 text-xs">?</span>{{ $payment->email }} <span class="text-xs">(sin cuenta aún)</span></span>
                                 @endif
                             </td>
-                            <td>{{ $payment->plan->name }}</td>
+                            <td>{{ $payment->description() }}</td>
                             <td class="text-right font-semibold tabular-nums">{{ $payment->formattedAmount() }}</td>
                             <td>
                                 <span class="{{ $payment->status->badgeClasses() }}">{{ $payment->status->label() }}</span>

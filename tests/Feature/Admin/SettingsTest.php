@@ -3,7 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Mail\SmtpTestMail;
-use App\Models\Plan;
+use App\Models\Book;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\Settings\RuntimeConfig;
@@ -135,14 +135,14 @@ class SettingsTest extends TestCase
         $this->actingAs($this->admin)->post(route('admin.settings.payments.test'))->assertSessionHasErrors('bold');
     }
 
-    public function test_settings_page_warns_about_plans_bold_cannot_charge(): void
+    public function test_settings_page_warns_about_book_prices_bold_cannot_charge(): void
     {
-        Plan::factory()->create(['name' => 'Mensual USD', 'price' => 999, 'currency' => 'USD']);
-        Plan::factory()->create(['name' => 'Mensual COP', 'price' => 29900, 'currency' => 'COP']);
+        Book::factory()->published()->create(['title' => 'Libro en dólares', 'price' => 999, 'currency' => 'USD']);
+        Book::factory()->published()->create(['title' => 'Libro en pesos', 'price' => 29900, 'currency' => 'COP']);
 
         $this->actingAs($this->admin)->get(route('admin.settings.edit'))
-            ->assertSee('Planes no compatibles con Bold')
-            ->assertSee('Mensual USD')
-            ->assertDontSee('Mensual COP (');
+            ->assertSee('Libros con precio no compatible con Bold')
+            ->assertSee('Libro en dólares')
+            ->assertDontSee('Libro en pesos (');
     }
 }

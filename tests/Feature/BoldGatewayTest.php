@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\PaymentStatus;
+use App\Models\Book;
 use App\Models\Payment;
-use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,7 +23,7 @@ class BoldGatewayTest extends TestCase
 
     private User $customer;
 
-    private Plan $plan;
+    private Book $book;
 
     protected function setUp(): void
     {
@@ -38,7 +38,7 @@ class BoldGatewayTest extends TestCase
         ]);
 
         $this->customer = User::factory()->create();
-        $this->plan = Plan::factory()->create(['name' => 'Mensual', 'price' => 29900, 'currency' => 'COP']);
+        $this->book = Book::factory()->published()->create(['title' => 'El fondo no era el final.', 'price' => 29900, 'currency' => 'COP']);
     }
 
     public function test_checkout_renders_bold_button_signed_on_the_server(): void
@@ -72,11 +72,11 @@ class BoldGatewayTest extends TestCase
         $this->actingAs(User::factory()->create())->get(\URL::temporarySignedRoute('checkout.bold', now()->addHour(), $payment))->assertNotFound();
     }
 
-    public function test_plans_bold_cannot_charge_show_an_error(): void
+    public function test_prices_bold_cannot_charge_show_an_error(): void
     {
-        $usdWithCents = Plan::factory()->create(['price' => 999, 'currency' => 'USD']);
+        $usdWithCents = Book::factory()->published()->create(['price' => 999, 'currency' => 'USD']);
 
-        $this->actingAs($this->customer)->post(route('checkout.store'), $this->form($usdWithCents))->assertSessionHasErrors('plan_id');
+        $this->actingAs($this->customer)->post(route('checkout.store'), $this->form($usdWithCents))->assertSessionHasErrors('book_id');
         $this->assertDatabaseCount('payments', 0);
     }
 
@@ -98,7 +98,7 @@ class BoldGatewayTest extends TestCase
             && $request->hasHeader('Authorization', 'x-api-key '.self::IDENTITY));
         $this->assertSame(PaymentStatus::Paid, $payment->fresh()->status);
         $this->assertSame('CNPVI70CQC0EY', $payment->fresh()->gateway_payment_id);
-        $this->assertTrue($this->customer->fresh()->hasActiveSubscription());
+        $this->assertTrue($this->customer->fresh()->ownsBook($this->book));
     }
 
     public function test_tampered_return_status_is_not_trusted(): void
@@ -111,7 +111,7 @@ class BoldGatewayTest extends TestCase
         $this->actingAs($this->customer)->get(route('checkout.bold.return', ['bold-order-id' => $payment->reference, 'bold-tx-status' => 'approved']));
 
         $this->assertSame(PaymentStatus::Failed, $payment->fresh()->status);
-        $this->assertFalse($this->customer->fresh()->hasActiveSubscription());
+        $this->assertFalse($this->customer->fresh()->ownsBook($this->book));
     }
 
     public function test_pending_or_unknown_status_keeps_waiting(): void
@@ -145,7 +145,8 @@ class BoldGatewayTest extends TestCase
         $this->sendWebhook($this->event($payment))->assertOk()->assertJson(['status' => 'processed']);
 
         $this->assertSame(PaymentStatus::Paid, $payment->fresh()->status);
-        $this->assertSame(1, Subscription::count());
+        $this->assertTrue($payment->fresh()->user->ownsBook($this->book));
+        $this->assertSame(0, Subscription::count());
 
         $this->sendWebhook($this->event($payment))->assertJson(['status' => 'duplicate']);
     }
@@ -181,15 +182,15 @@ class BoldGatewayTest extends TestCase
 
     private function startCheckout(): TestResponse
     {
-        return $this->actingAs($this->customer)->post(route('checkout.store'), $this->form($this->plan));
+        return $this->actingAs($this->customer)->post(route('checkout.store'), $this->form($this->book));
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function form(Plan $plan): array
+    private function form(Book $book): array
     {
-        return ['plan_id' => $plan->id, 'billing_name' => 'Ana Pérez', 'billing_country' => 'CO', 'billing_phone' => '3001234567', 'terms' => '1'];
+        return ['book_id' => $book->id, 'billing_name' => 'Ana Pérez', 'billing_country' => 'CO', 'billing_phone' => '3001234567', 'terms' => '1'];
     }
 
     /**

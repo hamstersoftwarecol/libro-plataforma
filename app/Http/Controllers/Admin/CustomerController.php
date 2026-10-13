@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\Role;
 use App\Enums\SubscriptionStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Book;
 use App\Models\ReadingSession;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\Library\BookAccess;
 use App\Services\Payments\SubscriptionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -27,20 +29,18 @@ class CustomerController extends Controller
     {
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', 'in:subscribed,past_due,without,inactive'],
+            'status' => ['nullable', 'in:buyers,without,inactive'],
         ]);
 
         $customers = User::query()
             ->where('role', Role::Reader)
-            ->withCount(['payments as paid_payments_count' => fn (Builder $query) => $query->where('status', 'paid')])
-            ->with(['subscriptions' => fn ($query) => $query->with('plan')->latest('ends_at')])
+            ->withCount(['payments as paid_payments_count' => fn (Builder $query) => $query->where('status', 'paid'), 'books'])
             ->when($filters['q'] ?? null, fn (Builder $query, string $term) => $query->where(fn (Builder $query) => $query
                 ->where('email', 'like', '%'.$term.'%')
                 ->orWhere('name', 'like', '%'.$term.'%')))
             ->when($filters['status'] ?? null, fn (Builder $query, string $status) => match ($status) {
-                'subscribed' => $query->whereHas('subscriptions', fn (Builder $query) => $query->grantingAccess()),
-                'past_due' => $query->whereHas('subscriptions', fn (Builder $query) => $query->where('status', SubscriptionStatus::PastDue)),
-                'without' => $query->whereDoesntHave('subscriptions', fn (Builder $query) => $query->grantingAccess()),
+                'buyers' => $query->has('books'),
+                'without' => $query->doesntHave('books'),
                 'inactive' => $query->where('is_active', false),
             })
             ->latest()
@@ -56,9 +56,9 @@ class CustomerController extends Controller
 
         return view('admin.customers.show', [
             'customer' => $customer,
-            'currentSubscription' => $customer->currentSubscription(),
-            'subscriptions' => $customer->subscriptions()->with('plan')->latest('ends_at')->get(),
-            'payments' => $customer->payments()->with('plan')->latest()->limit(50)->get(),
+            'books' => $customer->books()->orderByPivot('granted_at', 'desc')->get(),
+            'availableBooks' => Book::published()->whereNotIn('id', $customer->books()->pluck('books.id'))->orderBy('title')->get(['id', 'title']),
+            'payments' => $customer->payments()->with('plan', 'book')->latest()->limit(50)->get(),
             'reading' => $customer->readingProgress()->with('book')->latest('updated_at')->limit(20)->get(),
         ]);
     }
@@ -80,6 +80,31 @@ class CustomerController extends Controller
         $this->auditLogger->log($customer->is_active ? 'customer.activated' : 'customer.deactivated', $customer);
 
         return back()->with('status', $customer->is_active ? 'Cliente reactivado.' : 'Cliente bloqueado y desconectado.');
+    }
+
+    /**
+     * Give lifetime access to a book without payment (gift, compensation, review copy).
+     */
+    public function grantBook(Request $request, User $customer, BookAccess $bookAccess): RedirectResponse
+    {
+        abort_unless($customer->role === Role::Reader, 404);
+
+        $book = Book::published()->findOrFail($request->validate(['book_id' => ['required', 'integer']])['book_id']);
+        $bookAccess->grant($customer, $book, grantedBy: $request->user());
+
+        return back()->with('status', 'Acceso de por vida concedido a «'.rtrim($book->title, '.').'».');
+    }
+
+    /**
+     * Remove access to a book, e.g. after a refund.
+     */
+    public function revokeBook(Request $request, User $customer, Book $book, BookAccess $bookAccess): RedirectResponse
+    {
+        abort_unless($customer->role === Role::Reader, 404);
+
+        $bookAccess->revoke($customer, $book, $request->user());
+
+        return back()->with('status', 'Acceso a «'.rtrim($book->title, '.').'» retirado.');
     }
 
     /**

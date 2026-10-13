@@ -2,7 +2,7 @@
              :icon="match ($payment->status) { \App\Enums\PaymentStatus::Paid => 'check', \App\Enums\PaymentStatus::Failed => 'x', default => 'clock' }">
     @switch($payment->status)
         @case(\App\Enums\PaymentStatus::Paid)
-            <p class="-mt-4 text-zinc-600 dark:text-zinc-400">Tu plan <strong class="text-zinc-900 dark:text-white">{{ $payment->plan->name }}</strong> está activo hasta el <strong class="text-zinc-900 dark:text-white">{{ $payment->subscription?->ends_at->translatedFormat('j \d\e F \d\e Y') }}</strong>.</p>
+            <p class="-mt-4 text-zinc-600 dark:text-zinc-400">{{ $payment->book ? 'Ya tienes' : 'Activaste' }} <strong class="text-zinc-900 dark:text-white">{{ $payment->description() }}</strong>.</p>
             @auth
                 <a href="{{ route('book.start') }}" class="btn btn-primary mt-8 w-full py-3">Empezar a leer <x-icon name="arrow-right" class="size-4" /></a>
             @else
@@ -12,7 +12,7 @@
             @break
         @case(\App\Enums\PaymentStatus::Failed)
             <p class="-mt-4 text-zinc-600 dark:text-zinc-400">{{ $payment->failure_reason }}. No se realizó ningún cobro.</p>
-            <a href="{{ route('checkout.create', ['plan' => $payment->plan->slug]) }}" class="btn btn-primary mt-8 w-full py-3">Intentar de nuevo</a>
+            <a href="{{ route('checkout.create', array_filter(['libro' => $payment->book?->slug])) }}" class="btn btn-primary mt-8 w-full py-3">Intentar de nuevo</a>
             @break
         @default
             <p class="-mt-4 text-zinc-600 dark:text-zinc-400">Esto puede tardar unos segundos. La página se actualizará sola.</p>

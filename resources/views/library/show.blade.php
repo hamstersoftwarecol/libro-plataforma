@@ -58,10 +58,13 @@
                                     @if (! $book->hasFile())
                                         <p class="font-semibold">Disponible muy pronto</p>
                                         <p class="mt-1 text-sm text-zinc-500">Este libro aún no está listo para lectura.</p>
+                                    @elseif ($book->isForSale())
+                                        <p class="font-semibold">Cómpralo una vez, léelo para siempre</p>
+                                        <p class="mt-1 text-sm text-zinc-500">Pago único de <strong class="text-zinc-200">{{ $book->formattedPrice() }}</strong> con acceso de por vida.</p>
+                                        <a href="{{ route('checkout.create', ['libro' => $book->slug]) }}" class="btn btn-primary btn-sm mt-4">Comprar y leer · {{ $book->formattedPrice() }} <x-icon name="arrow-right" class="size-3.5" /></a>
                                     @else
-                                        <p class="font-semibold">Necesitas una suscripción activa</p>
-                                        <p class="mt-1 text-sm text-zinc-500">Accede a este y a todos los libros del catálogo.</p>
-                                        <a href="{{ route('checkout.create') }}" class="btn btn-primary btn-sm mt-4">Pagar y leer ahora <x-icon name="arrow-right" class="size-3.5" /></a>
+                                        <p class="font-semibold">Aún no está a la venta</p>
+                                        <p class="mt-1 text-sm text-zinc-500">Vuelve pronto.</p>
                                     @endif
                                 </div>
                             </div>

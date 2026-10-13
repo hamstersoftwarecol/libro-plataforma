@@ -14,7 +14,6 @@
     if (auth()->user()->can('view-finances')) {
         $sections['Negocio'] = [
             ['admin.customers.index', 'Clientes', 'users', 'admin.customers.*'],
-            ['admin.plans.index', 'Planes', 'sparkles', 'admin.plans.*'],
             ['admin.payments.index', 'Pagos', 'card', 'admin.payments.*'],
             ['admin.expenses.index', 'Gastos', 'receipt', 'admin.expenses.*'],
             ['admin.finances.index', 'Finanzas', 'banknotes', 'admin.finances.*'],

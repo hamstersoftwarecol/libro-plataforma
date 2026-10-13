@@ -7,8 +7,6 @@ use App\Enums\PaymentStatus;
 use App\Mail\LoginCodeMail;
 use App\Models\Book;
 use App\Models\Payment;
-use App\Models\Plan;
-use App\Models\Subscription;
 use App\Models\User;
 use App\Services\BookFileStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,8 +22,6 @@ class PaymentFlowTest extends TestCase
 
     private Book $book;
 
-    private Plan $plan;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -34,12 +30,11 @@ class PaymentFlowTest extends TestCase
         Mail::fake();
         config(['app.featured_book' => 'el-fondo-no-era-el-final']);
 
-        $this->book = Book::factory()->create(['title' => 'El fondo no era el final.', 'status' => BookStatus::Published, 'published_at' => now()]);
+        $this->book = Book::factory()->create(['title' => 'El fondo no era el final.', 'status' => BookStatus::Published, 'published_at' => now(), 'price' => 50000, 'currency' => 'COP']);
         $this->book->forceFill(['slug' => 'el-fondo-no-era-el-final'])->save();
         app(BookFileStorage::class)->storeBookFile($this->book, BookFixtures::pdfUpload());
         $this->book->refresh();
 
-        $this->plan = Plan::factory()->create(['name' => 'Mensual', 'price' => 999]);
     }
 
     public function test_visitors_who_want_to_read_go_to_the_payment_form(): void
@@ -62,7 +57,7 @@ class PaymentFlowTest extends TestCase
         $this->assertNotNull($user);
         $this->assertSame('Ana Pérez', $user->name);
         $this->assertTrue($payment->fresh()->created_account);
-        $this->assertTrue($user->hasActiveSubscription());
+        $this->assertTrue($user->ownsBook($this->book));
 
         $this->get(route('checkout.show', $payment))->assertRedirect(route('reader.show', $this->book));
         $this->assertAuthenticatedAs($user);
@@ -109,7 +104,7 @@ class PaymentFlowTest extends TestCase
     private function guestForm(string $email): array
     {
         return [
-            'plan_id' => (string) $this->plan->id,
+            'book_id' => (string) $this->book->id,
             'email' => $email,
             'email_confirmation' => $email,
             'billing_name' => 'Ana Pérez',
@@ -121,7 +116,7 @@ class PaymentFlowTest extends TestCase
     public function test_paying_customer_goes_straight_into_the_book(): void
     {
         $customer = User::factory()->create();
-        Subscription::factory()->for($customer)->create();
+        $customer->books()->attach($this->book->id, ['granted_at' => now()]);
 
         $this->actingAs($customer)->get(route('book.start'))->assertRedirect(route('reader.show', $this->book));
     }
@@ -139,14 +134,14 @@ class PaymentFlowTest extends TestCase
     {
         $customer = User::factory()->create();
 
-        $this->actingAs($customer)->get(route('reader.show', $this->book))->assertRedirect(route('checkout.create'));
+        $this->actingAs($customer)->get(route('reader.show', $this->book))->assertRedirect(route('checkout.create', ['libro' => $this->book->slug]));
         $this->actingAs($customer)->get(route('reader.page', [$this->book, 1]))->assertForbidden();
     }
 
     public function test_payment_form_validates_billing_details_and_terms(): void
     {
         $this->actingAs(User::factory()->create())
-            ->post(route('checkout.store'), ['plan_id' => $this->plan->id, 'billing_name' => '', 'billing_country' => 'XYZ', 'billing_phone' => 'abc'])
+            ->post(route('checkout.store'), ['book_id' => $this->book->id, 'billing_name' => '', 'billing_country' => 'XYZ', 'billing_phone' => 'abc'])
             ->assertSessionHasErrors(['billing_name', 'billing_country', 'billing_phone', 'terms']);
 
         $this->assertDatabaseCount('payments', 0);
@@ -157,7 +152,7 @@ class PaymentFlowTest extends TestCase
         $customer = User::factory()->create(['name' => null]);
 
         $location = $this->actingAs($customer)->post(route('checkout.store'), [
-            'plan_id' => $this->plan->id,
+            'book_id' => $this->book->id,
             'billing_name' => 'Ana Pérez',
             'billing_document' => 'CC 1020304050',
             'billing_country' => 'co',
@@ -173,7 +168,7 @@ class PaymentFlowTest extends TestCase
         $this->assertStringContainsString('/sandbox/pago/', $location);
 
         // Before the gateway confirms: still no access.
-        $this->actingAs($customer)->get(route('reader.show', $this->book))->assertRedirect(route('checkout.create'));
+        $this->actingAs($customer)->get(route('reader.show', $this->book))->assertRedirect(route('checkout.create', ['libro' => $this->book->slug]));
         $this->actingAs($customer)->get(route('checkout.show', $payment))->assertOk()->assertSee('Estamos confirmando tu pago');
 
         // The gateway approves and notifies the server.
@@ -188,14 +183,14 @@ class PaymentFlowTest extends TestCase
     {
         $customer = User::factory()->create();
         $this->actingAs($customer)->post(route('checkout.store'), [
-            'plan_id' => $this->plan->id, 'billing_name' => 'Ana Pérez', 'billing_country' => 'CO', 'terms' => '1',
+            'book_id' => $this->book->id, 'billing_name' => 'Ana Pérez', 'billing_country' => 'CO', 'terms' => '1',
         ]);
         $payment = Payment::sole();
 
         $this->actingAs($customer)->post(URL::temporarySignedRoute('sandbox.complete', now()->addMinutes(5), $payment), ['outcome' => 'decline']);
 
         $this->actingAs($customer)->get(route('checkout.show', $payment))->assertOk()->assertSee('No pudimos procesar el pago');
-        $this->actingAs($customer)->get(route('reader.show', $this->book))->assertRedirect(route('checkout.create'));
+        $this->actingAs($customer)->get(route('reader.show', $this->book))->assertRedirect(route('checkout.create', ['libro' => $this->book->slug]));
     }
 
     public function test_form_is_prefilled_with_previous_billing_details(): void

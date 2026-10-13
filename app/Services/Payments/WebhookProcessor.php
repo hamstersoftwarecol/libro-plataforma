@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Services\AuditLogger;
+use App\Services\Library\BookAccess;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,7 @@ class WebhookProcessor
     public function __construct(
         private PaymentGatewayManager $gateways,
         private SubscriptionService $subscriptions,
+        private BookAccess $bookAccess,
         private AuditLogger $auditLogger,
     ) {}
 
@@ -122,8 +124,12 @@ class WebhookProcessor
             ]);
             $this->ensureAccount($payment);
             $this->auditLogger->log('payment.paid', $payment, ['event' => $event->id], $payment->user);
-            $this->subscriptions->activateFromPayment($payment);
-            Mail::to($payment->user)->queue(new PaymentReceiptMail($payment->fresh(['plan', 'subscription'])));
+            if ($payment->book_id) {
+                $this->bookAccess->grant($payment->user, $payment->book, $payment);
+            } else {
+                $this->subscriptions->activateFromPayment($payment);
+            }
+            Mail::to($payment->user)->queue(new PaymentReceiptMail($payment->fresh(['plan', 'book', 'subscription'])));
 
             return self::PROCESSED;
         }
@@ -141,7 +147,7 @@ class WebhookProcessor
                 ->where('ends_at', '<=', now())
                 ->update(['status' => SubscriptionStatus::PastDue]);
 
-            Mail::to($payment->user ?? $payment->email)->queue(new PaymentFailedMail($payment->fresh('plan')));
+            Mail::to($payment->user ?? $payment->email)->queue(new PaymentFailedMail($payment->fresh(['plan', 'book'])));
 
             return self::PROCESSED;
         }

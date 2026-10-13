@@ -2,20 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Plan;
-use Illuminate\Http\Request;
-use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
 
 class PlanController extends Controller
 {
     /**
-     * Public pricing page (HU-017).
+     * Plans were replaced by single-book lifetime purchases; old links go to the payment form.
      */
-    public function index(Request $request): View
+    public function index(): RedirectResponse
     {
-        return view('plans.index', [
-            'plans' => Plan::available()->get(),
-            'currentSubscription' => $request->user()?->currentSubscription(),
-        ]);
+        return redirect()->route('checkout.create', status: 301);
     }
 }

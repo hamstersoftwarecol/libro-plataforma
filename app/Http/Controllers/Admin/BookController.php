@@ -11,6 +11,7 @@ use App\Models\Category;
 use App\Models\Tag;
 use App\Services\AuditLogger;
 use App\Services\BookFileStorage;
+use App\Services\Payments\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +51,7 @@ class BookController extends Controller
     {
         Gate::authorize('create', Book::class);
 
-        return view('admin.books.form', ['book' => new Book(['language' => 'es']), 'categories' => Category::orderBy('name')->get()]);
+        return view('admin.books.form', ['book' => new Book(['language' => 'es', 'currency' => 'COP']), 'categories' => Category::orderBy('name')->get()]);
     }
 
     /**
@@ -58,7 +59,7 @@ class BookController extends Controller
      */
     public function store(BookRequest $request): RedirectResponse
     {
-        $book = new Book($request->safe()->except(['authors', 'tags', 'cover', 'file']));
+        $book = new Book($this->attributes($request));
         $book->status = BookStatus::Draft;
         $book->created_by = $request->user()->id;
 
@@ -80,7 +81,7 @@ class BookController extends Controller
 
     public function update(BookRequest $request, Book $book): RedirectResponse
     {
-        $book->fill($request->safe()->except(['authors', 'tags', 'cover', 'file']));
+        $book->fill($this->attributes($request));
 
         $this->persist($book, $request);
 
@@ -128,6 +129,22 @@ class BookController extends Controller
         $book->delete();
 
         return redirect()->route('admin.books.index')->with('status', 'Libro eliminado.');
+    }
+
+    /**
+     * Book fields with the price converted to minor units. Empty or zero price means "not for sale".
+     *
+     * @return array<string, mixed>
+     */
+    private function attributes(BookRequest $request): array
+    {
+        $attributes = $request->safe()->except(['authors', 'tags', 'cover', 'file']);
+        $attributes['currency'] = strtoupper($attributes['currency'] ?? 'COP');
+        $attributes['price'] = filled($attributes['price'] ?? null) && (float) $attributes['price'] > 0
+            ? Money::toMinor($attributes['price'], $attributes['currency'])
+            : null;
+
+        return $attributes;
     }
 
     private function persist(Book $book, BookRequest $request): void

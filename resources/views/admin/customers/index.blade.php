@@ -5,7 +5,7 @@
             <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Correo o nombre" class="input pl-10">
         </div>
         <div class="flex flex-wrap gap-2">
-            @foreach (['' => 'Todos', 'subscribed' => 'Con acceso', 'past_due' => 'Pago pendiente', 'without' => 'Sin suscripción', 'inactive' => 'Bloqueados'] as $value => $label)
+            @foreach (['' => 'Todos', 'buyers' => 'Compradores', 'without' => 'Sin libros', 'inactive' => 'Bloqueados'] as $value => $label)
                 <a href="{{ route('admin.customers.index', array_filter(['q' => $filters['q'] ?? null, 'status' => $value])) }}" @class(['chip', 'chip-active' => ($filters['status'] ?? '') === $value])>{{ $label }}</a>
             @endforeach
         </div>
@@ -16,10 +16,9 @@
             <x-empty-state icon="users" title="No hay clientes con esos filtros" />
         @else
             <table class="table">
-                <thead><tr><th>Cliente</th><th>Suscripción</th><th>Vence</th><th class="text-right">Pagos</th><th>Último ingreso</th><th></th></tr></thead>
+                <thead><tr><th>Cliente</th><th class="text-right">Libros</th><th class="text-right">Pagos</th><th>Cliente desde</th><th>Último ingreso</th><th></th></tr></thead>
                 <tbody>
                     @foreach ($customers as $customer)
-                        @php $subscription = $customer->subscriptions->first(); @endphp
                         <tr>
                             <td>
                                 <a href="{{ route('admin.customers.show', $customer) }}" class="flex items-center gap-3">
@@ -30,15 +29,9 @@
                                     </div>
                                 </a>
                             </td>
-                            <td>
-                                @if ($subscription)
-                                    <div class="flex items-center gap-2"><span class="text-zinc-600 dark:text-zinc-300">{{ $subscription->plan?->name ?? 'Cortesía' }}</span><span class="{{ $subscription->status->badgeClasses() }}">{{ $subscription->status->label() }}</span></div>
-                                @else
-                                    <span class="text-zinc-400">—</span>
-                                @endif
-                            </td>
-                            <td class="whitespace-nowrap text-zinc-500">{{ $subscription?->ends_at->format('d/m/Y') ?? '—' }}</td>
+                            <td class="text-right tabular-nums">{{ $customer->books_count }}</td>
                             <td class="text-right tabular-nums">{{ $customer->paid_payments_count }}</td>
+                            <td class="whitespace-nowrap text-zinc-500">{{ $customer->created_at->format('d/m/Y') }}</td>
                             <td class="whitespace-nowrap text-zinc-500">{{ $customer->last_login_at?->diffForHumans() ?? 'Nunca' }}</td>
                             <td class="text-right"><a href="{{ route('admin.customers.show', $customer) }}" class="btn btn-ghost btn-sm"><x-icon name="chevron-right" class="size-4" /></a></td>
                         </tr>

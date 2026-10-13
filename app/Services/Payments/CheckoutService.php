@@ -3,12 +3,13 @@
 namespace App\Services\Payments;
 
 use App\Enums\PaymentStatus;
+use App\Models\Book;
 use App\Models\Payment;
-use App\Models\Plan;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class CheckoutService
 {
@@ -22,12 +23,16 @@ class CheckoutService
      *
      * @param  array{billing_name?: string, billing_document?: ?string, billing_country?: string, billing_phone?: ?string}  $billing
      */
-    public function start(?User $user, string $email, Plan $plan, array $billing = []): CheckoutSession
+    public function start(?User $user, string $email, Book $book, array $billing = []): CheckoutSession
     {
+        if (! $book->isForSale()) {
+            throw new RuntimeException('Este libro no está a la venta en este momento.');
+        }
+
         $gateway = $this->gateways->driver();
 
-        return DB::transaction(function () use ($gateway, $user, $email, $plan, $billing): CheckoutSession {
-            $payment = $this->createPayment($gateway, $user, mb_strtolower(trim($email)), $plan, $billing);
+        return DB::transaction(function () use ($gateway, $user, $email, $book, $billing): CheckoutSession {
+            $payment = $this->createPayment($gateway, $user, mb_strtolower(trim($email)), $book, $billing);
 
             return new CheckoutSession($payment, $gateway->checkoutUrl($payment));
         });
@@ -36,16 +41,16 @@ class CheckoutService
     /**
      * @param  array<string, ?string>  $billing
      */
-    private function createPayment(PaymentGateway $gateway, ?User $user, string $email, Plan $plan, array $billing): Payment
+    private function createPayment(PaymentGateway $gateway, ?User $user, string $email, Book $book, array $billing): Payment
     {
         $payment = Payment::create([
             'user_id' => $user?->id,
             'email' => $user?->email ?? $email,
-            'plan_id' => $plan->id,
+            'book_id' => $book->id,
             'reference' => (string) Str::uuid(),
             'gateway' => $gateway->name(),
-            'amount' => $plan->price,
-            'currency' => $plan->currency,
+            'amount' => $book->price,
+            'currency' => $book->currency,
             ...$billing,
             'terms_accepted_at' => $billing === [] ? null : now(),
             'status' => PaymentStatus::Pending,
@@ -55,7 +60,7 @@ class CheckoutService
             $user->update(['name' => $billing['billing_name']]);
         }
 
-        $this->auditLogger->log('payment.started', $payment, ['plan' => $plan->slug, 'amount' => $plan->price, 'gateway' => $gateway->name()]);
+        $this->auditLogger->log('payment.started', $payment, ['book' => $book->slug, 'amount' => $book->price, 'gateway' => $gateway->name()]);
 
         return $payment;
     }

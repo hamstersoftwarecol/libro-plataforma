@@ -21,7 +21,8 @@ class BookPolicy
     }
 
     /**
-     * Reading requires an active account, a readable file and, for readers, an active subscription (HU-013).
+     * Reading requires an active account, a readable file and, for readers, owning the book for life
+     * (older subscriptions are still honoured while they last) (HU-013).
      */
     public function read(User $user, Book $book): bool
     {
@@ -33,7 +34,7 @@ class BookPolicy
             return true;
         }
 
-        return $book->isPublished() && $user->hasActiveSubscription();
+        return $book->isPublished() && ($user->ownsBook($book) || $user->hasActiveSubscription());
     }
 
     public function create(User $user): bool

@@ -77,8 +77,15 @@ class ReaderAccessTest extends TestCase
         Subscription::factory()->expired()->for($reader)->create();
         $book = $this->publishedBook();
 
-        $this->actingAs($reader)->get(route('reader.show', $book))->assertRedirect(route('checkout.create'));
-        $this->actingAs($reader)->get(route('library.show', $book))->assertSee('Necesitas una suscripción activa');
+        $this->actingAs($reader)->get(route('reader.show', $book))->assertForbidden();
+        $this->actingAs($reader)->get(route('library.show', $book))->assertSee('Aún no está a la venta');
+
+        $book->forceFill(['price' => 50000, 'currency' => 'COP'])->save();
+        $this->actingAs($reader)->get(route('reader.show', $book))->assertRedirect(route('checkout.create', ['libro' => $book->slug]));
+        $this->actingAs($reader)->get(route('library.show', $book))->assertSee('Comprar y leer');
+
+        $reader->books()->attach($book->id, ['granted_at' => now()]);
+        $this->actingAs($reader)->get(route('reader.show', $book))->assertOk();
     }
 
     public function test_access_is_rechecked_on_every_page(): void

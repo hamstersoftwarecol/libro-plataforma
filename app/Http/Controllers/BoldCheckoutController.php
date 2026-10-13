@@ -28,8 +28,8 @@ class BoldCheckoutController extends Controller
         $gateway = $gateways->driver('bold');
 
         return view('checkout.bold', [
-            'payment' => $payment->load('plan'),
-            'book' => Book::featured(),
+            'payment' => $payment->load('plan', 'book'),
+            'book' => $payment->book ?? Book::featured(),
             'button' => [
                 'api-key' => $gateway->identityKey(),
                 'order-id' => $payment->reference,
@@ -37,7 +37,7 @@ class BoldCheckoutController extends Controller
                 'amount' => (string) $gateway->amountFor($payment),
                 'integrity-signature' => $gateway->integritySignature($payment),
                 'redirection-url' => route('checkout.bold.return'),
-                'description' => mb_substr('Suscripción '.$payment->plan->name.' · '.config('app.name'), 0, 100),
+                'description' => mb_substr($payment->description(), 0, 100),
                 'customer-data' => json_encode(array_filter([
                     'email' => $payment->email,
                     'fullName' => $payment->billing_name,

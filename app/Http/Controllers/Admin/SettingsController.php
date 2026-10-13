@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\SmtpTestMail;
-use App\Models\Plan;
+use App\Models\Book;
 use App\Models\Setting;
 use App\Services\AuditLogger;
 use App\Services\Payments\BoldGateway;
@@ -47,7 +47,7 @@ class SettingsController extends Controller
                 'has_bold_secret' => filled(config('payments.gateways.bold.secret_key')),
                 'webhook_url' => route('webhooks.payments', 'bold'),
                 'return_url' => route('checkout.bold.return'),
-                'incompatible_plans' => Plan::query()->where('is_active', true)->get()->reject(fn (Plan $plan): bool => $this->boldAccepts($plan)),
+                'incompatible_books' => Book::query()->published()->whereNotNull('price')->get()->reject(fn (Book $book): bool => $this->boldAccepts($book)),
                 'sandbox_available' => (bool) config('payments.gateways.sandbox.enabled'),
             ],
         ]);
@@ -143,13 +143,13 @@ class SettingsController extends Controller
             : back()->with('status', 'Conexión con Bold correcta: la llave de identidad fue aceptada.');
     }
 
-    private function boldAccepts(Plan $plan): bool
+    private function boldAccepts(Book $book): bool
     {
-        $major = Money::toMajor($plan->price, $plan->currency);
+        $major = Money::toMajor($book->price, $book->currency);
 
-        return in_array($plan->currency, BoldGateway::SUPPORTED_CURRENCIES, true)
+        return in_array($book->currency, BoldGateway::SUPPORTED_CURRENCIES, true)
             && floor($major) === $major
-            && ($plan->currency !== 'COP' || $major >= BoldGateway::MINIMUM_COP);
+            && ($book->currency !== 'COP' || $major >= BoldGateway::MINIMUM_COP);
     }
 
     /**

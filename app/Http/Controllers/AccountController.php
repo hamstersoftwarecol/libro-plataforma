@@ -18,8 +18,9 @@ class AccountController extends Controller
         $user = $request->user();
 
         return view('account.show', [
-            'subscription' => $user->currentSubscription() ?? $user->subscriptions()->with('plan')->latest('ends_at')->first(),
-            'payments' => $user->payments()->with('plan')->latest()->paginate(15),
+            'books' => $user->books()->with('authors')->orderByPivot('granted_at', 'desc')->get(),
+            'subscription' => $user->currentSubscription(),
+            'payments' => $user->payments()->with('plan', 'book')->latest()->paginate(15),
         ]);
     }
 

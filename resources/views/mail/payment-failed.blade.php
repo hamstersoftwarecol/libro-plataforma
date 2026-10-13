@@ -1,7 +1,7 @@
 <x-mail::message>
 # No pudimos procesar tu pago
 
-El pago de **{{ $payment->formattedAmount() }}** por el plan {{ $payment->plan->name }} fue rechazado.
+El pago de **{{ $payment->formattedAmount() }}** por {{ $payment->description() }} fue rechazado.
 
 @if ($payment->failure_reason)
 Motivo: {{ $payment->failure_reason }}

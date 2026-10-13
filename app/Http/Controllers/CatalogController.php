@@ -36,6 +36,7 @@ class CatalogController extends Controller
 
         return view('library.index', [
             'books' => $books,
+            'ownedIds' => $request->user()->books()->pluck('books.id')->all(),
             'filters' => $filters,
             'continueReading' => array_filter($filters) ? collect() : $request->user()->readingProgress()
                 ->whereNull('finished_at')

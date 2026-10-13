@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\SubscriptionStatus;
+use App\Models\Book;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\Subscription;
@@ -86,19 +87,21 @@ class SubscriptionLifecycleTest extends TestCase
         $this->assertTrue($renewed->ends_at->eq(now()->addMonthNoOverflow()));
     }
 
-    public function test_account_page_shows_status_and_payment_history(): void
+    public function test_account_page_lists_owned_books_and_payment_history(): void
     {
-        $subscription = $this->activate(Plan::factory()->create(['name' => 'Lector Mensual']));
-        Payment::factory()->create(['user_id' => $subscription->user_id, 'failure_reason' => null]);
+        $user = User::factory()->create();
+        $book = Book::factory()->published()->create(['title' => 'Mi libro comprado']);
+        $payment = Payment::factory()->paid()->create(['user_id' => $user->id, 'book_id' => $book->id, 'plan_id' => null]);
+        $user->books()->attach($book->id, ['payment_id' => $payment->id, 'granted_at' => now()]);
         $otherPayment = Payment::factory()->paid()->create();
 
-        $this->actingAs($subscription->user)
+        $this->actingAs($user)
             ->get(route('account'))
             ->assertOk()
-            ->assertSee('Lector Mensual')
-            ->assertSee('Próxima renovación')
+            ->assertSee('Mis libros')
+            ->assertSee('Mi libro comprado')
+            ->assertSee('Acceso de por vida')
             ->assertSee('Pagado')
-            ->assertSee('Pendiente')
             ->assertDontSee(substr($otherPayment->reference, 0, 8));
     }
 

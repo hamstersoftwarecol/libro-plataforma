@@ -22,7 +22,7 @@ class PaymentReceiptMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Recibo de pago · '.$this->payment->plan->name,
+            subject: 'Recibo de pago · '.$this->payment->description(),
         );
     }
 

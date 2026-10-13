@@ -34,6 +34,8 @@ class BookRequest extends FormRequest
             'published_year' => ['nullable', 'integer', 'min:1000', 'max:'.(now()->year + 1)],
             'page_count' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
+            'price' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'currency' => ['nullable', 'string', 'size:3', 'alpha'],
             'authors' => ['nullable', 'string', 'max:1000'],
             'tags' => ['nullable', 'string', 'max:1000'],
             'cover' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
@@ -52,6 +54,8 @@ class BookRequest extends FormRequest
             'published_year' => 'año de publicación',
             'page_count' => 'número de páginas',
             'cover' => 'portada',
+            'price' => 'precio',
+            'currency' => 'moneda',
             'file' => 'archivo del libro',
         ];
     }

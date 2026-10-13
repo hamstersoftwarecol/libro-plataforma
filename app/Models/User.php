@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -71,6 +72,26 @@ class User extends Authenticatable
     public function currentSubscription(): ?Subscription
     {
         return $this->subscriptions()->grantingAccess()->with('plan')->latest('ends_at')->first();
+    }
+
+    /**
+     * Books this user owns for life (bought or granted by an administrator).
+     *
+     * @return BelongsToMany<Book, $this>
+     */
+    public function books(): BelongsToMany
+    {
+        return $this->belongsToMany(Book::class)->withPivot(['payment_id', 'granted_by', 'granted_at'])->withTimestamps();
+    }
+
+    public function ownsBook(Book $book): bool
+    {
+        return $this->books()->whereKey($book->id)->exists();
+    }
+
+    public function ownsAnyBook(): bool
+    {
+        return $this->books()->exists();
     }
 
     /**

@@ -24,7 +24,7 @@
             </x-empty-state>
         @else
             <table class="table">
-                <thead><tr><th>Libro</th><th>Categoría</th><th>Archivo</th><th>Estado</th><th></th></tr></thead>
+                <thead><tr><th>Libro</th><th>Categoría</th><th class="text-right">Precio</th><th>Archivo</th><th>Estado</th><th></th></tr></thead>
                 <tbody>
                     @foreach ($books as $book)
                         <tr>
@@ -38,6 +38,7 @@
                                 </div>
                             </td>
                             <td class="text-zinc-500">{{ $book->category?->name ?? '—' }}</td>
+                            <td class="text-right font-semibold tabular-nums">{{ $book->formattedPrice() ?? '—' }}</td>
                             <td>
                                 @if ($book->file_format)
                                     <span class="badge bg-zinc-50 font-mono text-zinc-600 uppercase ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">{{ $book->file_format->value }}</span>
