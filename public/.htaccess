@@ -1,3 +1,8 @@
+# Shared hosting (Bluehost/cPanel): mod_rewrite needs symlink following, and
+# FollowSymLinks is often disallowed, so use the owner-checked variant.
+Options +SymLinksIfOwnerMatch
+DirectoryIndex index.php
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
