@@ -9,7 +9,9 @@
     <x-fonts />
     @vite(['resources/css/app.css'])
     <style>
-        @media print { body { display: none !important; } }
+        @media print {
+            html, body { display: none !important; background: #000 !important; }
+        }
         *, *::before, *::after {
             -webkit-user-select: none !important;
             -moz-user-select: none !important;
@@ -26,6 +28,18 @@
             -webkit-user-drag: none;
             user-drag: none;
         }
+        .screen-blackout header,
+        .screen-blackout main,
+        .screen-blackout #page-wrapper,
+        .screen-blackout #chapter-wrapper {
+            visibility: hidden !important;
+            opacity: 0 !important;
+            filter: brightness(0) !important;
+        }
+        body.screen-blackout {
+            background: #000 !important;
+            background-image: none !important;
+        }
         .reader-protected { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
         .dark-pages #page-canvas { filter: invert(0.9) hue-rotate(180deg) sepia(0.28) brightness(0.92); }
         body[data-theme='dark'] { background-image: radial-gradient(ellipse 70% 45% at 50% -5%, oklch(0.3 0.07 45 / 0.5), transparent 70%), radial-gradient(ellipse 50% 35% at 50% 110%, oklch(0.26 0.06 35 / 0.35), transparent 70%); background-attachment: fixed; }
@@ -41,6 +55,12 @@
     </style>
 </head>
 <body data-theme="dark" class="reader-protected h-full bg-[#efe6d6] text-zinc-900 transition-colors duration-500 data-[theme=dark]:bg-zinc-950 data-[theme=dark]:text-zinc-100" oncontextmenu="return false;">
+    <div id="screenshot-shield" class="fixed inset-0 z-[99999] hidden flex-col items-center justify-center bg-black select-none pointer-events-auto">
+        <div class="text-center p-6 text-zinc-500">
+            <svg class="size-12 mx-auto mb-3 opacity-30 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+            <p class="text-xs uppercase tracking-widest font-semibold opacity-40">Contenido protegido contra capturas de pantalla</p>
+        </div>
+    </div>
     <header class="sticky top-0 z-20 border-b border-black/10 bg-[#f6efe3]/80 backdrop-blur-xl transition-colors duration-500 in-data-[theme=dark]:border-white/[0.06] in-data-[theme=dark]:bg-zinc-950/70">
         <div class="mx-auto flex h-14 max-w-6xl items-center gap-1 px-3 text-sm sm:gap-2">
             <a href="{{ route('library.show', $book) }}" class="btn btn-ghost btn-sm px-2" title="Salir del lector"><x-icon name="arrow-left" class="size-4" /></a>
@@ -304,12 +324,75 @@
             document.querySelectorAll('[data-action]').forEach((button) => button.addEventListener('click', () => actions[button.dataset.action]()));
             $('#position-input').addEventListener('change', (event) => goTo(parseInt(event.target.value, 10) || 1));
 
+            // Control de oscurecimiento total anti-capturas (Pantalla Negra)
+            const shield = document.getElementById('screenshot-shield');
+            let blackoutTimer;
+            const blackout = (enable, duration = 0) => {
+                clearTimeout(blackoutTimer);
+                if (enable) {
+                    if (shield) {
+                        shield.classList.remove('hidden');
+                        shield.classList.add('flex');
+                    }
+                    document.body.classList.add('screen-blackout');
+                    if (duration > 0) {
+                        blackoutTimer = setTimeout(() => blackout(false), duration);
+                    }
+                } else {
+                    if (shield) {
+                        shield.classList.remove('flex');
+                        shield.classList.add('hidden');
+                    }
+                    document.body.classList.remove('screen-blackout');
+                }
+            };
+
+            const clearClipboard = () => {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText('').catch(() => {});
+                    }
+                } catch (_) {}
+            };
+
+            const isScreenshotKey = (e) => {
+                const key = (e.key || '').toLowerCase();
+                const code = e.code || '';
+                const keyCode = e.keyCode || e.which;
+
+                // Windows / Linux: PrintScreen
+                if (key === 'printscreen' || code === 'PrintScreen' || keyCode === 44) {
+                    return true;
+                }
+
+                // Windows: Win + Shift + S
+                if (e.metaKey && e.shiftKey && (key === 's' || code === 'KeyS')) {
+                    return true;
+                }
+
+                // Mac: Cmd + Shift + 3, 4, 5, 6
+                if (e.metaKey && e.shiftKey && ['3', '4', '5', '6'].includes(key)) {
+                    return true;
+                }
+
+                return false;
+            };
+
             document.addEventListener('keydown', (event) => {
                 const key = event.key ? event.key.toLowerCase() : '';
                 const code = event.keyCode || event.which;
                 const isMod = event.ctrlKey || event.metaKey;
                 const isShift = event.shiftKey;
                 const isAlt = event.altKey;
+
+                // Bloquear atajos de captura de pantalla (Windows PrintScreen / Win+Shift+S y Mac Cmd+Shift+3/4/5/6)
+                if (isScreenshotKey(event)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    blackout(true, 2500);
+                    clearClipboard();
+                    return false;
+                }
 
                 // 1. Bloquear Modo Desarrollador / DevTools (F12, Ctrl+Shift+I/J/C/K/E, Cmd+Option+I/J/C/U)
                 if (key === 'f12' || code === 123) {
@@ -346,6 +429,35 @@
                 if (event.key === 'ArrowRight' || event.key === 'PageDown') actions.next();
                 if (event.key === 'ArrowLeft' || event.key === 'PageUp') actions.prev();
             }, true);
+
+            window.addEventListener('keyup', (event) => {
+                if (isScreenshotKey(event)) {
+                    blackout(true, 2500);
+                    clearClipboard();
+                }
+            }, true);
+
+            // Oscurecer inmediatamente al perder el foco (activación de herramientas de recorte/captura en Mac y Windows)
+            window.addEventListener('blur', () => {
+                blackout(true);
+                clearClipboard();
+            });
+
+            window.addEventListener('focus', () => {
+                setTimeout(() => blackout(false), 250);
+            });
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    blackout(true);
+                    clearClipboard();
+                } else {
+                    setTimeout(() => blackout(false), 250);
+                }
+            });
+
+            window.addEventListener('beforeprint', () => blackout(true));
+            window.addEventListener('afterprint', () => blackout(false));
 
             // Bloquear click derecho (contextmenu), arrastrar, copiar, cortar, pegar y seleccionar
             ['contextmenu', 'dragstart', 'copy', 'cut', 'paste', 'selectstart'].forEach((type) => {
