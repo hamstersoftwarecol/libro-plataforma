@@ -8,6 +8,7 @@ use App\Models\ReadingProgress;
 use App\Services\AuditLogger;
 use App\Services\Reader\BookContent;
 use App\Services\Reader\ReadingSessionManager;
+use App\Services\Reader\Watermarker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -64,7 +65,20 @@ class ReaderController extends Controller
         ]);
         $width = (int) ($validated['w'] ?? config('reader.default_page_width'));
 
-        $image = $this->content->pdfPage($book, $page, $width, $this->watermarkText($request));
+        try {
+            $image = $this->content->pdfPage($book, $page, $width, $this->watermarkText($request));
+        } catch (\Throwable $e) {
+            Log::error("ReaderController: Error al renderizar página {$page} para libro {$book->id}: ".$e->getMessage());
+
+            try {
+                $fallbackPng = $this->content->fallbackPagePng($book, $page, $width);
+                $image = app(Watermarker::class)->apply($fallbackPng, $this->watermarkText($request));
+            } catch (\Throwable $e2) {
+                Log::error("ReaderController: Falló incluso renderizado fallback para libro {$book->id}: ".$e2->getMessage());
+
+                $image = base64_decode('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==');
+            }
+        }
 
         return response($image, 200, $this->protectedHeaders('image/webp'));
     }

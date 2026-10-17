@@ -66,8 +66,46 @@ class PdfRenderer
      */
     public function renderPage(string $path, int $page, int $width): string
     {
+        // 1. Try pdftoppm (highest quality poppler renderer)
+        $png = $this->renderWithPdftoppm($path, $page, $width);
+        if ($png !== null) {
+            return $png;
+        }
+
+        // 2. Try pdftocairo (alternative poppler renderer)
+        $png = $this->renderWithPdftocairo($path, $page, $width);
+        if ($png !== null) {
+            return $png;
+        }
+
+        // 3. Try Ghostscript (gs - standard on cPanel / CentOS / Linux)
+        $png = $this->renderWithGhostscript($path, $page, $width);
+        if ($png !== null) {
+            return $png;
+        }
+
+        // 4. Try ImageMagick CLI (convert)
+        $png = $this->renderWithConvert($path, $page, $width);
+        if ($png !== null) {
+            return $png;
+        }
+
+        // 5. Try Imagick PHP extension
+        $png = $this->renderWithImagick($path, $page, $width);
+        if ($png !== null) {
+            return $png;
+        }
+
+        // 6. Graceful pure PHP GD fallback
+        Log::info("PdfRenderer: Utilizando renderizado GD para página {$page}.");
+
+        return $this->renderFallbackGd($path, $page, $width);
+    }
+
+    private function renderWithPdftoppm(string $path, int $page, int $width): ?string
+    {
         $binary = $this->resolveBinary('pdftoppm_path', 'pdftoppm');
-        $outputBase = tempnam(sys_get_temp_dir(), 'libro-page');
+        $outputBase = tempnam(sys_get_temp_dir(), 'libro-ppm');
 
         try {
             $result = Process::timeout(60)->run([
@@ -79,36 +117,236 @@ class PdfRenderer
             ]);
 
             if ($result->successful() && is_file($outputBase.'.png')) {
-                return file_get_contents($outputBase.'.png');
+                return (string) file_get_contents($outputBase.'.png');
             }
+        } catch (\Throwable $e) {
+            Log::debug('PdfRenderer pdftoppm error: '.$e->getMessage());
         } finally {
             @unlink($outputBase);
             @unlink($outputBase.'.png');
         }
 
-        // Fallback: render using Imagick if available on the server
-        if (class_exists(\Imagick::class)) {
-            try {
-                $im = new \Imagick;
-                $im->setResolution(150, 150);
-                $im->readImage($path.'['.($page - 1).']');
-                $im->setImageFormat('png');
-                $im->thumbnailImage($width, 0);
-                $png = $im->getImageBlob();
-                $im->clear();
-                $im->destroy();
+        return null;
+    }
 
-                if ($png !== false && strlen($png) > 0) {
-                    return $png;
+    private function renderWithPdftocairo(string $path, int $page, int $width): ?string
+    {
+        $binary = $this->resolveBinary('pdftocairo_path', 'pdftocairo');
+        $outputBase = tempnam(sys_get_temp_dir(), 'libro-cairo');
+
+        try {
+            $result = Process::timeout(60)->run([
+                $binary,
+                '-png', '-singlefile',
+                '-f', (string) $page, '-l', (string) $page,
+                '-scale-to-x', (string) $width, '-scale-to-y', '-1',
+                $path, $outputBase,
+            ]);
+
+            if ($result->successful() && is_file($outputBase.'.png')) {
+                return (string) file_get_contents($outputBase.'.png');
+            }
+        } catch (\Throwable $e) {
+            Log::debug('PdfRenderer pdftocairo error: '.$e->getMessage());
+        } finally {
+            @unlink($outputBase);
+            @unlink($outputBase.'.png');
+        }
+
+        return null;
+    }
+
+    private function renderWithGhostscript(string $path, int $page, int $width): ?string
+    {
+        $binary = $this->resolveBinary('gs_path', 'gs');
+        $outputFile = tempnam(sys_get_temp_dir(), 'libro-gs').'.png';
+
+        try {
+            $result = Process::timeout(60)->run([
+                $binary,
+                '-dSAFER',
+                '-dBATCH',
+                '-dNOPAUSE',
+                '-sDEVICE=png16m',
+                '-r150',
+                '-dFirstPage='.(string) $page,
+                '-dLastPage='.(string) $page,
+                '-dTextAlphaBits=4',
+                '-dGraphicsAlphaBits=4',
+                '-sOutputFile='.$outputFile,
+                $path,
+            ]);
+
+            if ($result->successful() && is_file($outputFile) && filesize($outputFile) > 0) {
+                $raw = (string) file_get_contents($outputFile);
+
+                return $this->resizePngIfNeeded($raw, $width);
+            }
+        } catch (\Throwable $e) {
+            Log::debug('PdfRenderer gs error: '.$e->getMessage());
+        } finally {
+            @unlink($outputFile);
+        }
+
+        return null;
+    }
+
+    private function renderWithConvert(string $path, int $page, int $width): ?string
+    {
+        $binary = $this->resolveBinary('convert_path', 'convert');
+        $outputFile = tempnam(sys_get_temp_dir(), 'libro-conv').'.png';
+
+        try {
+            $pageIndex = $page - 1;
+            $result = Process::timeout(60)->run([
+                $binary,
+                '-density', '150',
+                "{$path}[{$pageIndex}]",
+                '-resize', (string) $width,
+                $outputFile,
+            ]);
+
+            if ($result->successful() && is_file($outputFile) && filesize($outputFile) > 0) {
+                return (string) file_get_contents($outputFile);
+            }
+        } catch (\Throwable $e) {
+            Log::debug('PdfRenderer convert error: '.$e->getMessage());
+        } finally {
+            @unlink($outputFile);
+        }
+
+        return null;
+    }
+
+    private function renderWithImagick(string $path, int $page, int $width): ?string
+    {
+        if (! class_exists(\Imagick::class)) {
+            return null;
+        }
+
+        try {
+            $im = new \Imagick;
+            $im->setResolution(150, 150);
+            $im->readImage($path.'['.($page - 1).']');
+            $im->setImageFormat('png');
+            $im->thumbnailImage($width, 0);
+            $png = $im->getImageBlob();
+            $im->clear();
+            $im->destroy();
+
+            if ($png !== false && strlen($png) > 0) {
+                return $png;
+            }
+        } catch (\Throwable $e) {
+            Log::debug('PdfRenderer Imagick error: '.$e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Fallback to render a clean typographic book page image using GD when no external PDF renderer is available.
+     */
+    public function renderFallbackGd(string $path, int $page, int $width): string
+    {
+        $text = $this->pageText($path, $page);
+        if ($text === '') {
+            $text = $this->extractTextFromPdf($path, $page);
+        }
+
+        $aspectRatio = 1.414;
+        $height = (int) max(800, $width * $aspectRatio);
+
+        $image = imagecreatetruecolor($width, $height);
+
+        $bg = imagecolorallocate($image, 252, 250, 246);
+        imagefill($image, 0, 0, $bg);
+
+        $borderColor = imagecolorallocate($image, 235, 230, 220);
+        $margin = (int) ($width * 0.05);
+        imagerectangle($image, $margin, $margin, $width - $margin, $height - $margin, $borderColor);
+
+        $headerColor = imagecolorallocate($image, 140, 135, 125);
+        $font = 4;
+        $headerText = "Página {$page}";
+        $headerX = (int) (($width - (strlen($headerText) * imagefontwidth($font))) / 2);
+        imagestring($image, $font, $headerX, $margin + 20, $headerText, $headerColor);
+
+        $textColor = imagecolorallocate($image, 35, 35, 35);
+        $fontWidth = imagefontwidth(4);
+        $fontHeight = imagefontheight(4);
+
+        $contentMarginX = (int) ($width * 0.08);
+        $contentWidth = $width - ($contentMarginX * 2);
+        $charsPerLine = max(20, (int) ($contentWidth / $fontWidth));
+
+        $startY = $margin + 60;
+        $maxY = $height - $margin - 50;
+
+        if (trim($text) === '') {
+            $msg = "(Página {$page} · Usa el modo Texto para leer el contenido)";
+            $msgX = (int) (($width - (strlen($msg) * $fontWidth)) / 2);
+            imagestring($image, 4, $msgX, (int) ($height / 2), $msg, $headerColor);
+        } else {
+            $paragraphs = preg_split('/\n\s*\n/u', trim($text)) ?: [trim($text)];
+            $currentY = $startY;
+
+            foreach ($paragraphs as $paragraph) {
+                $cleanParagraph = preg_replace('/\s+/u', ' ', trim($paragraph));
+                $lines = explode("\n", wordwrap($cleanParagraph, $charsPerLine, "\n", true));
+                foreach ($lines as $line) {
+                    if ($currentY + $fontHeight > $maxY) {
+                        break 2;
+                    }
+                    imagestring($image, 4, $contentMarginX, $currentY, $line, $textColor);
+                    $currentY += $fontHeight + 6;
                 }
-            } catch (\Throwable $e) {
-                Log::warning("PdfRenderer: Falló renderizado Imagick para página {$page}: ".$e->getMessage());
+                $currentY += 12;
             }
         }
 
-        Log::warning("PdfRenderer: Falló {$binary} para renderizar página {$page}. Salida: ".($result->errorOutput() ?? ''));
+        $footerText = "— {$page} —";
+        $footerX = (int) (($width - (strlen($footerText) * imagefontwidth(3))) / 2);
+        imagestring($image, 3, $footerX, $height - $margin - 30, $footerText, $headerColor);
 
-        throw new RuntimeException('No se pudo renderizar la página '.$page.'.');
+        ob_start();
+        imagepng($image);
+        $png = (string) ob_get_clean();
+        imagedestroy($image);
+
+        return $png;
+    }
+
+    private function resizePngIfNeeded(string $rawPng, int $targetWidth): string
+    {
+        if ($targetWidth <= 0 || ! function_exists('imagecreatefromstring')) {
+            return $rawPng;
+        }
+
+        $image = @imagecreatefromstring($rawPng);
+        if (! $image) {
+            return $rawPng;
+        }
+
+        $currentWidth = imagesx($image);
+        if ($currentWidth === $targetWidth) {
+            imagedestroy($image);
+
+            return $rawPng;
+        }
+
+        $scaled = imagescale($image, $targetWidth);
+        imagedestroy($image);
+
+        if (! $scaled) {
+            return $rawPng;
+        }
+
+        ob_start();
+        imagepng($scaled);
+        imagedestroy($scaled);
+
+        return (string) ob_get_clean();
     }
 
     /**
@@ -126,6 +364,7 @@ class PdfRenderer
             $configured,
             '/usr/bin/'.$defaultBinary,
             '/usr/local/bin/'.$defaultBinary,
+            '/bin/'.$defaultBinary,
             '/opt/homebrew/bin/'.$defaultBinary,
             base_path('bin/'.$defaultBinary),
         ];
@@ -134,6 +373,17 @@ class PdfRenderer
             if ($candidate !== '' && is_file($candidate) && is_executable($candidate)) {
                 return $candidate;
             }
+        }
+
+        try {
+            $which = Process::timeout(5)->run(['which', $defaultBinary]);
+            if ($which->successful()) {
+                $path = trim($which->output());
+                if ($path !== '' && is_file($path) && is_executable($path)) {
+                    return $path;
+                }
+            }
+        } catch (\Throwable) {
         }
 
         return $configured !== '' ? $configured : $defaultBinary;

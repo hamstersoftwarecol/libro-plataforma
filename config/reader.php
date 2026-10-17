@@ -32,6 +32,12 @@ return [
 
     'pdftoppm_path' => env('PDFTOPPM_PATH', 'pdftoppm'),
 
+    'pdftocairo_path' => env('PDFTOCAIRO_PATH', 'pdftocairo'),
+
+    'gs_path' => env('GS_PATH', 'gs'),
+
+    'convert_path' => env('CONVERT_PATH', 'convert'),
+
     'pdfinfo_path' => env('PDFINFO_PATH', 'pdfinfo'),
 
     'pdftotext_path' => env('PDFTOTEXT_PATH', 'pdftotext'),

@@ -45,6 +45,31 @@ class ReaderAccessTest extends TestCase
         $this->assertSame(800, imagesx($image));
     }
 
+    public function test_pdf_page_image_returns_200_even_if_pdftoppm_is_misconfigured(): void
+    {
+        config([
+            'reader.pdftoppm_path' => '/nonexistent/pdftoppm',
+            'reader.pdftocairo_path' => '/nonexistent/pdftocairo',
+            'reader.gs_path' => '/nonexistent/gs',
+            'reader.convert_path' => '/nonexistent/convert',
+        ]);
+
+        $reader = $this->subscriber();
+        $book = $this->publishedBook();
+        $token = $this->openReader($reader, $book);
+
+        $response = $this->actingAs($reader)
+            ->withHeader('X-Reading-Session', $token)
+            ->get(route('reader.page', [$book, 1, 'w' => 800]));
+
+        $response->assertOk()
+            ->assertHeader('Content-Type', 'image/webp');
+
+        $image = imagecreatefromstring($response->getContent());
+        $this->assertNotFalse($image);
+        $this->assertSame(800, imagesx($image));
+    }
+
     public function test_reader_view_never_exposes_the_original_file(): void
     {
         $reader = $this->subscriber();

@@ -129,7 +129,7 @@
                     ...options,
                     credentials: 'same-origin',
                     cache: 'no-store',
-                    headers: { 'X-Reading-Session': config.token, 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', ...(options.headers || {}) },
+                    headers: { 'X-Reading-Session': config.token, 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json, image/webp, image/*, */*', ...(options.headers || {}) },
                 });
 
                 if ([401, 403, 409, 419].includes(response.status)) {
@@ -165,7 +165,23 @@
             };
 
             const renderPdf = async () => {
-                const bitmap = await fetchPage(state.position);
+                let bitmap;
+                try {
+                    bitmap = await fetchPage(state.position);
+                } catch (error) {
+                    if (error.message === 'blocked') throw error;
+                    console.warn('Fallback a modo texto para la página:', state.position, error);
+                    state.textMode = true;
+                    const pdfWrapper = document.getElementById('page-wrapper');
+                    if (pdfWrapper) {
+                        pdfWrapper.classList.add('hidden');
+                        $('#chapter-wrapper').classList.remove('hidden');
+                        $('#text-mode-label').textContent = translating() ? 'Page' : 'Página';
+                    }
+                    await renderText();
+                    return;
+                }
+
                 const canvas = $('#page-canvas');
                 canvas.width = bitmap.width;
                 canvas.height = bitmap.height;

@@ -48,6 +48,22 @@ class BookContent
     }
 
     /**
+     * Emergency fallback to generate a page image with GD when caching or primary rendering failed.
+     */
+    public function fallbackPagePng(Book $book, int $page, int $width): string
+    {
+        $plainPath = $this->plainPath($book);
+
+        try {
+            return $this->pdfRenderer->renderFallbackGd($plainPath, $page, $width);
+        } finally {
+            if ($book->file_encrypted) {
+                @unlink($plainPath);
+            }
+        }
+    }
+
+    /**
      * Escaped HTML paragraphs with the text of a PDF page, so it can be translated in the browser.
      */
     public function pdfPageText(Book $book, int $page): string
