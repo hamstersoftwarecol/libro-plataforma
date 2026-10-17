@@ -94,6 +94,34 @@ class CheckoutTest extends TestCase
         $this->assertSame('ana@example.com', $payment->email);
     }
 
+    public function test_guests_can_checkout_with_only_email_and_terms(): void
+    {
+        $this->post(route('checkout.store'), [
+            'book_id' => $this->book->id,
+            'email' => 'simple@example.com',
+            'terms' => '1',
+        ])->assertRedirect();
+
+        $payment = Payment::sole();
+        $this->assertSame('simple@example.com', $payment->email);
+        $this->assertSame('Simple', $payment->billing_name);
+        $this->assertSame('CO', $payment->billing_country);
+    }
+
+    public function test_guests_with_email_of_existing_owner_cannot_buy_again(): void
+    {
+        $user = User::factory()->create(['email' => 'dueno@example.com']);
+        $user->books()->attach($this->book->id, ['granted_at' => now()]);
+
+        $this->post(route('checkout.store'), [
+            'book_id' => $this->book->id,
+            'email' => 'dueno@example.com',
+            'terms' => '1',
+        ])->assertRedirect(route('login'));
+
+        $this->assertDatabaseCount('payments', 0);
+    }
+
     public function test_signed_in_customers_cannot_override_their_email(): void
     {
         $this->actingAs(User::factory()->create())

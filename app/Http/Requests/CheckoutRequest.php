@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class CheckoutRequest extends FormRequest
@@ -22,10 +23,17 @@ class CheckoutRequest extends FormRequest
     {
         return [
             'book_id' => ['required', 'integer', Rule::exists('books', 'id')->where('status', 'published')->whereNotNull('price')],
-            'email' => [$this->user() ? 'prohibited' : 'required', 'nullable', 'string', 'email:rfc', 'max:255', 'confirmed'],
-            'billing_name' => ['required', 'string', 'min:3', 'max:255'],
+            'email' => [
+                $this->user() ? 'prohibited' : 'required',
+                'nullable',
+                'string',
+                'email:rfc',
+                'max:255',
+                Rule::when($this->filled('email_confirmation'), ['confirmed']),
+            ],
+            'billing_name' => [Rule::when($this->has('billing_name'), ['required', 'string', 'min:3', 'max:255'])],
             'billing_document' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9.\-\s]+$/'],
-            'billing_country' => ['required', 'string', 'size:2', 'alpha'],
+            'billing_country' => [Rule::when($this->has('billing_country'), ['required', 'string', 'size:2', 'alpha'])],
             'billing_phone' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+()\-\s]+$/'],
             'terms' => ['accepted'],
         ];
@@ -67,15 +75,18 @@ class CheckoutRequest extends FormRequest
     }
 
     /**
-     * @return array{billing_name: string, billing_document: ?string, billing_country: string, billing_phone: ?string}
+     * @return array{billing_name: ?string, billing_document: ?string, billing_country: string, billing_phone: ?string}
      */
     public function billing(): array
     {
+        $email = $this->buyerEmail();
+        $fallbackName = $this->user()?->name ?: ($email !== '' ? Str::headline(Str::before($email, '@')) : null);
+
         return [
-            'billing_name' => trim($this->validated('billing_name')),
-            'billing_document' => $this->validated('billing_document') ? trim($this->validated('billing_document')) : null,
-            'billing_country' => strtoupper($this->validated('billing_country')),
-            'billing_phone' => $this->validated('billing_phone') ? trim($this->validated('billing_phone')) : null,
+            'billing_name' => $this->validated('billing_name') ? trim((string) $this->validated('billing_name')) : $fallbackName,
+            'billing_document' => $this->validated('billing_document') ? trim((string) $this->validated('billing_document')) : null,
+            'billing_country' => strtoupper($this->validated('billing_country') ?: 'CO'),
+            'billing_phone' => $this->validated('billing_phone') ? trim((string) $this->validated('billing_phone')) : null,
         ];
     }
 }

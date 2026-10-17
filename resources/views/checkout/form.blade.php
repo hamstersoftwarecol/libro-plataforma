@@ -1,7 +1,3 @@
-@php
-    $countries = ['CO' => 'Colombia', 'MX' => 'México', 'AR' => 'Argentina', 'CL' => 'Chile', 'PE' => 'Perú', 'EC' => 'Ecuador', 'VE' => 'Venezuela', 'BO' => 'Bolivia', 'PY' => 'Paraguay', 'UY' => 'Uruguay', 'CR' => 'Costa Rica', 'PA' => 'Panamá', 'GT' => 'Guatemala', 'HN' => 'Honduras', 'SV' => 'El Salvador', 'NI' => 'Nicaragua', 'DO' => 'República Dominicana', 'PR' => 'Puerto Rico', 'CU' => 'Cuba', 'ES' => 'España', 'US' => 'Estados Unidos', 'CA' => 'Canadá', 'BR' => 'Brasil', 'IT' => 'Italia', 'FR' => 'Francia', 'DE' => 'Alemania', 'GB' => 'Reino Unido', 'PT' => 'Portugal'];
-@endphp
-
 <x-app-layout title="Pago" bare>
     <section class="relative overflow-hidden px-4 py-12 sm:px-6 lg:px-8">
         <div class="cine-sun absolute -top-40 right-[-10rem] size-[40rem] rounded-full opacity-50 blur-2xl"></div>
@@ -25,58 +21,42 @@
 
                 <div class="space-y-6">
                     <input type="hidden" name="book_id" value="{{ $book?->id }}">
+                    @if (!empty($billing['billing_name']))
+                        <input type="hidden" name="billing_name" value="{{ $billing['billing_name'] }}">
+                    @endif
+                    @if (!empty($billing['billing_document']))
+                        <input type="hidden" name="billing_document" value="{{ $billing['billing_document'] }}">
+                    @endif
+                    @if (!empty($billing['billing_country']))
+                        <input type="hidden" name="billing_country" value="{{ $billing['billing_country'] }}">
+                    @endif
+                    @if (!empty($billing['billing_phone']))
+                        <input type="hidden" name="billing_phone" value="{{ $billing['billing_phone'] }}">
+                    @endif
                     @error('book_id')
                         <div class="flex items-start gap-3 rounded-2xl bg-red-950/50 px-4 py-3.5 text-sm text-red-200 ring-1 ring-red-900"><x-icon name="warning" class="size-5 text-red-400" />{{ $message }}</div>
                     @enderror
 
-                    {{-- Billing --}}
+                    {{-- Customer email --}}
                     <section class="card">
                         <div class="card-header">
-                            <h2 class="card-title flex items-center gap-2"><span class="grid size-6 place-items-center rounded-full bg-brand-600 text-xs text-white">1</span>Tus datos</h2>
+                            <h2 class="card-title flex items-center gap-2"><span class="grid size-6 place-items-center rounded-full bg-brand-600 text-xs text-white">1</span>Tu cuenta de acceso</h2>
                         </div>
-                        <div class="card-body grid gap-5 sm:grid-cols-2">
-                            <div class="sm:col-span-2">
-                                <label for="billing_name" class="label">Nombre completo *</label>
-                                <input id="billing_name" name="billing_name" value="{{ old('billing_name', $billing['billing_name']) }}" required autocomplete="name" class="input" placeholder="Como aparece en tu documento">
-                                @error('billing_name')<p class="error">{{ $message }}</p>@enderror
-                            </div>
+                        <div class="card-body">
                             @auth
-                                <div class="sm:col-span-2">
+                                <div>
                                     <label class="label">Correo electrónico</label>
                                     <input value="{{ auth()->user()->email }}" disabled class="input cursor-not-allowed opacity-60">
-                                    <p class="hint">Aquí recibirás el recibo.</p>
+                                    <p class="hint mt-2">Tu cuenta ya está activa con este correo. Aquí recibirás el comprobante y el acceso inmediato.</p>
                                 </div>
                             @else
                                 <div>
                                     <label for="email" class="label">Correo electrónico *</label>
                                     <input id="email" name="email" type="email" value="{{ old('email') }}" required autocomplete="email" class="input" placeholder="tu@correo.com">
                                     @error('email')<p class="error">{{ $message }}</p>@enderror
+                                    <p class="hint mt-2">Solo necesitamos tu correo para activar tu acceso al confirmar el pago. Sin contraseñas ni formularios largos.</p>
                                 </div>
-                                <div>
-                                    <label for="email_confirmation" class="label">Confirma tu correo *</label>
-                                    <input id="email_confirmation" name="email_confirmation" type="email" value="{{ old('email_confirmation') }}" required autocomplete="email" class="input" placeholder="tu@correo.com" onpaste="return false">
-                                </div>
-                                <p class="hint -mt-2 sm:col-span-2">Con este correo se crea tu cuenta al confirmarse el pago y con él ingresarás después. Revisa que esté bien escrito.</p>
                             @endauth
-                            <div>
-                                <label for="billing_document" class="label">Documento de identidad</label>
-                                <input id="billing_document" name="billing_document" value="{{ old('billing_document', $billing['billing_document']) }}" maxlength="30" class="input" placeholder="Opcional">
-                                @error('billing_document')<p class="error">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="billing_country" class="label">País *</label>
-                                <select id="billing_country" name="billing_country" required autocomplete="country" class="input">
-                                    @foreach ($countries as $code => $country)
-                                        <option value="{{ $code }}" @selected(old('billing_country', $billing['billing_country']) === $code)>{{ $country }}</option>
-                                    @endforeach
-                                </select>
-                                @error('billing_country')<p class="error">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="billing_phone" class="label">Teléfono</label>
-                                <input id="billing_phone" name="billing_phone" type="tel" value="{{ old('billing_phone', $billing['billing_phone']) }}" autocomplete="tel" class="input" placeholder="Opcional">
-                                @error('billing_phone')<p class="error">{{ $message }}</p>@enderror
-                            </div>
                         </div>
                     </section>
 
@@ -89,8 +69,8 @@
                         <div class="card-body flex items-start gap-4">
                             <div class="grid size-11 shrink-0 place-items-center rounded-xl bg-white/5 text-brand-400 ring-1 ring-white/10"><x-icon name="card" /></div>
                             <p class="text-sm leading-relaxed text-zinc-400">
-                                Al continuar te llevaremos a la <strong class="text-zinc-200">pasarela de pago segura</strong> para ingresar los datos de tu tarjeta.
-                                Nunca guardamos ni vemos tu número de tarjeta. Al aprobarse, volverás directamente al libro.
+                                Al continuar te llevaremos a la <strong class="text-zinc-200">pasarela de pago segura de Bold</strong> para ingresar los datos de tu tarjeta o PSE.
+                                Nunca guardamos datos bancarios. Al aprobarse el pago, volverás directamente a leer el libro.
                             </p>
                         </div>
                     </section>
@@ -131,7 +111,7 @@
                                 </label>
                                 @error('terms')<p class="error">{{ $message }}</p>@enderror
 
-                                <button type="submit" class="btn btn-primary w-full py-3.5 text-base">
+                                <button type="submit" class="btn btn-primary w-full py-3.5 text-base cursor-pointer">
                                     <x-icon name="lock" class="size-4" />Pagar y empezar a leer
                                 </button>
                             @else

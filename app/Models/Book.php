@@ -142,7 +142,9 @@ class Book extends Model
      */
     public static function featured(): ?self
     {
-        return static::query()->published()->firstWhere('slug', config('app.featured_book'));
+        return static::query()->published()->firstWhere('slug', config('app.featured_book'))
+            ?? static::query()->published()->whereNotNull('price')->where('price', '>', 0)->latest()->first()
+            ?? static::query()->published()->latest()->first();
     }
 
     public function isPublished(): bool

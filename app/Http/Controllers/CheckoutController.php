@@ -6,6 +6,7 @@ use App\Enums\PaymentStatus;
 use App\Http\Requests\CheckoutRequest;
 use App\Models\Book;
 use App\Models\Payment;
+use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\Payments\CheckoutService;
 use App\Services\Payments\PaymentStatusSync;
@@ -55,8 +56,15 @@ class CheckoutController extends Controller
             return redirect()->route('reader.show', $book)->with('status', 'Ya tienes este libro.');
         }
 
+        $buyerEmail = $request->buyerEmail();
+        $existingOwner = User::firstWhere('email', $buyerEmail);
+        if ($existingOwner?->ownsBook($book)) {
+            return redirect()->route('login')
+                ->with('status', 'Ya compraste este libro con el correo '.$buyerEmail.'. Ingresa para comenzar a leerlo.');
+        }
+
         try {
-            $session = $checkout->start($request->user(), $request->buyerEmail(), $book, $request->billing());
+            $session = $checkout->start($request->user(), $buyerEmail, $book, $request->billing());
             $session->payment->rememberInSession($request);
 
             return redirect()->away($session->url);
