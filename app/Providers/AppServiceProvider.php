@@ -36,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('view-finances', fn (User $user): bool => $user->isAdmin());
         Gate::define('manage-subscribers', fn (User $user): bool => $user->isAdmin());
         Gate::define('manage-settings', fn (User $user): bool => $user->isAdmin());
+        Gate::define('view-audit-logs', fn (User $user): bool => $user->isAdmin());
 
         RateLimiter::for('otp', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
         RateLimiter::for('webhooks', fn (Request $request): Limit => Limit::perMinute(300)->by($request->ip()));

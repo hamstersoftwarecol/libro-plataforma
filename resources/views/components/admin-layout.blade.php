@@ -20,10 +20,14 @@
         ];
     }
 
-    if (auth()->user()->can('manage-settings')) {
-        $sections['Sistema'] = [
-            ['admin.settings.edit', 'Configuración', 'cog', 'admin.settings.*'],
-        ];
+    if (auth()->user()->can('manage-settings') || auth()->user()->can('view-audit-logs')) {
+        $sections['Sistema'] = [];
+        if (auth()->user()->can('manage-settings')) {
+            $sections['Sistema'][] = ['admin.settings.edit', 'Configuración', 'cog', 'admin.settings.*'];
+        }
+        if (auth()->user()->can('view-audit-logs')) {
+            $sections['Sistema'][] = ['admin.audit.index', 'Auditoría', 'shield', 'admin.audit.*'];
+        }
     }
 @endphp
 

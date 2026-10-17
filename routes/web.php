@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\AnalyticsController;
+use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\AuthorController;
 use App\Http\Controllers\Admin\BookController;
 use App\Http\Controllers\Admin\CategoryController;
@@ -91,6 +92,12 @@ Route::middleware('auth')->group(function () {
             Route::post('/correo/prueba', [SettingsController::class, 'testMail'])->middleware('throttle:5,1')->name('mail.test');
             Route::put('/pagos', [SettingsController::class, 'updatePayments'])->name('payments');
             Route::post('/pagos/prueba', [SettingsController::class, 'testBold'])->middleware('throttle:10,1')->name('payments.test');
+        });
+
+        Route::middleware('can:view-audit-logs')->prefix('auditoria')->name('audit.')->group(function () {
+            Route::get('/', [AuditController::class, 'index'])->name('index');
+            Route::get('/feed', [AuditController::class, 'feed'])->name('feed');
+            Route::get('/exportar', [AuditController::class, 'export'])->name('export');
         });
 
         Route::middleware('can:view-finances')->group(function () {

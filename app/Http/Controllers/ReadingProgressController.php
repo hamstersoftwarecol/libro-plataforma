@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Book;
 use App\Models\ReadingProgress;
+use App\Services\AuditLogger;
 use App\Services\Reader\ReadingSessionManager;
 use App\Services\Reader\ReadingTracker;
 use Illuminate\Http\JsonResponse;
@@ -15,7 +16,7 @@ class ReadingProgressController extends Controller
     /**
      * Save the current reading position (HU-015).
      */
-    public function store(Request $request, Book $book, ReadingSessionManager $sessions, ReadingTracker $tracker): JsonResponse
+    public function store(Request $request, Book $book, ReadingSessionManager $sessions, ReadingTracker $tracker, AuditLogger $auditLogger): JsonResponse
     {
         Gate::authorize('read', $book);
 
@@ -43,6 +44,15 @@ class ReadingProgressController extends Controller
                 'finished_at' => $validated['position'] === $total ? now() : null,
             ],
         );
+
+        if ($previousPosition !== $validated['position']) {
+            $auditLogger->log('reader.progress', $book, [
+                'position' => $validated['position'],
+                'total' => $total,
+                'percentage' => $percentage,
+                'finished' => $validated['position'] === $total,
+            ], $request->user());
+        }
 
         return response()->json(['position' => $progress->position, 'percentage' => $progress->percentage]);
     }
