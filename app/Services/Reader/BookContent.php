@@ -59,7 +59,7 @@ class BookContent
             ->filter();
 
         return $paragraphs->isEmpty()
-            ? '<p class="text-center opacity-60">(Esta página no contiene texto: puede ser una imagen o ilustración.)</p>'
+            ? '<div class="text-center py-6"><p class="opacity-70 text-base mb-4">(Esta página no contiene texto: puede ser la portada o una ilustración.)</p><button type="button" onclick="document.querySelector(\'header [data-action=&quot;text-mode&quot;]\')?.click()" class="inline-flex items-center gap-2 rounded-xl bg-zinc-800 px-4 py-2.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-700 transition ring-1 ring-white/10 cursor-pointer">Ver diseño original de la página</button></div>'
             : $paragraphs->map(fn (string $paragraph) => '<p>'.e($paragraph).'</p>')->join('');
     }
 

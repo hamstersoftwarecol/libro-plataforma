@@ -111,11 +111,12 @@
                 Object.assign(state, JSON.parse(localStorage.getItem(config.storageKey) || '{}'));
             } catch (error) {}
 
+            delete state.textMode;
             const translating = () => (window.libroTranslation?.current() || 'es') !== 'es';
-            state.textMode = config.format === 'epub' || translating() || state.textMode === true;
+            state.textMode = config.format === 'epub' || translating();
 
             const savePrefs = () => {
-                try { localStorage.setItem(config.storageKey, JSON.stringify({ zoom: state.zoom, theme: state.theme, textMode: config.format === 'pdf' && state.textMode && ! translating() })); } catch (error) {}
+                try { localStorage.setItem(config.storageKey, JSON.stringify({ zoom: state.zoom, theme: state.theme })); } catch (error) {}
             };
 
             const block = (message) => {
