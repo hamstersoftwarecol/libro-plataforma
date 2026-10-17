@@ -240,9 +240,13 @@
                 return `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}")`;
             };
 
+            const currentLang = () => (window.libroTranslation?.current() || 'es');
+
             const renderText = async () => {
                 const url = config.format === 'epub' ? config.chapterUrl : config.textUrl;
-                const response = await request(url.replace('__N__', state.position));
+                const lang = currentLang();
+                const separator = url.includes('?') ? '&' : '?';
+                const response = await request(url.replace('__N__', state.position) + separator + 'lang=' + lang);
                 const data = await response.json();
                 $('#chapter').innerHTML = data.html;
                 $('#chapter').style.fontSize = (1.1 * state.zoom) + 'rem';
@@ -280,7 +284,7 @@
                         $('#chapter-wrapper').classList.toggle('hidden', ! state.textMode);
                         $('#text-mode-label').textContent = translating() ? (state.textMode ? 'Page' : 'Text') : (state.textMode ? 'Página' : 'Texto');
                         $('#text-mode-note').textContent = translating()
-                            ? 'Automatic translation by Google · the original page layout is only available in Spanish.'
+                            ? 'Traducción al inglés activada · pulsa «Página» para ver el diseño original en español.'
                             : 'Vista de texto de la página. Pulsa «Página» para volver al diseño original.';
                     }
                     state.textMode ? await renderText() : await renderPdf();

@@ -227,6 +227,19 @@ class ReaderAccessTest extends TestCase
             ->assertJsonPath('html', '<p>Pagina 2</p>');
     }
 
+    public function test_pdf_page_text_supports_english_translation(): void
+    {
+        $reader = $this->subscriber();
+        $book = $this->publishedBook();
+        $token = $this->openReader($reader, $book);
+
+        $response = $this->actingAs($reader)->withHeader('X-Reading-Session', $token)->getJson(route('reader.text', [$book, 2, 'lang' => 'en']));
+
+        $response->assertOk()
+            ->assertJsonPath('lang', 'en')
+            ->assertJsonStructure(['html', 'watermark', 'lang']);
+    }
+
     public function test_page_text_is_not_available_for_epub_books(): void
     {
         $reader = $this->subscriber();

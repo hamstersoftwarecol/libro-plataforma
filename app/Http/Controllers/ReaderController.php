@@ -92,8 +92,10 @@ class ReaderController extends Controller
             return $denied;
         }
 
+        $lang = $request->query('lang') === 'en' ? 'en' : 'es';
+
         try {
-            $html = $this->content->pdfPageText($book, $page);
+            $html = $this->content->pdfPageText($book, $page, $lang);
         } catch (\Throwable $e) {
             Log::warning("Error al extraer texto para libro {$book->id} página {$page}: ".$e->getMessage());
 
@@ -103,6 +105,7 @@ class ReaderController extends Controller
         return response()->json([
             'html' => $html,
             'watermark' => $this->watermarkText($request),
+            'lang' => $lang,
         ], 200, $this->protectedHeaders('application/json'));
     }
 
@@ -115,9 +118,12 @@ class ReaderController extends Controller
             return $denied;
         }
 
+        $lang = $request->query('lang') === 'en' ? 'en' : 'es';
+
         return response()->json([
-            'html' => $this->content->epubChapter($book, $chapter),
+            'html' => $this->content->epubChapter($book, $chapter, $lang),
             'watermark' => $this->watermarkText($request),
+            'lang' => $lang,
         ], 200, $this->protectedHeaders('application/json'));
     }
 

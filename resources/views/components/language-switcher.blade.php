@@ -15,14 +15,59 @@
 @once
     <div id="google_translate_element" class="hidden" aria-hidden="true"></div>
     <script>
+        // Silenciar telemetría de Google Translate para evitar net::ERR_BLOCKED_BY_CLIENT por bloqueadores de anuncios
+        (() => {
+            const isLogUrl = (url) => typeof url === 'string' && (url.includes('translate.googleapis.com/element/log') || url.includes('/element/log?'));
+
+            if (window.fetch) {
+                const origFetch = window.fetch;
+                window.fetch = function(input, init) {
+                    const url = typeof input === 'string' ? input : (input?.url || '');
+                    if (isLogUrl(url)) {
+                        return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+                    }
+                    return origFetch.apply(this, arguments);
+                };
+            }
+
+            if (window.XMLHttpRequest) {
+                const origOpen = XMLHttpRequest.prototype.open;
+                const origSend = XMLHttpRequest.prototype.send;
+                XMLHttpRequest.prototype.open = function(method, url) {
+                    this._isLogUrl = isLogUrl(url);
+                    return origOpen.apply(this, arguments);
+                };
+                XMLHttpRequest.prototype.send = function() {
+                    if (this._isLogUrl) {
+                        try {
+                            Object.defineProperty(this, 'status', { value: 200, writable: false });
+                            Object.defineProperty(this, 'readyState', { value: 4, writable: false });
+                            Object.defineProperty(this, 'responseText', { value: '{}', writable: false });
+                            if (typeof this.onload === 'function') this.onload();
+                        } catch (_) {}
+                        return;
+                    }
+                    return origSend.apply(this, arguments);
+                };
+            }
+
+            if (navigator.sendBeacon) {
+                const origBeacon = navigator.sendBeacon.bind(navigator);
+                navigator.sendBeacon = function(url, data) {
+                    if (isLogUrl(url)) return true;
+                    return origBeacon(url, data);
+                };
+            }
+        })();
+
         window.libroTranslation = (() => {
             const current = () => {
+                const local = localStorage.getItem('libro_lang');
+                if (local && ['es', 'en'].includes(local)) return local;
                 const values = [...document.cookie.matchAll(/(?:^|;\s*)googtrans=\/[a-z-]+\/([a-z-]+)/gi)].map((match) => match[1]);
-                // Google can leave the cookie on several domains; any non-Spanish value means "translated".
                 return values.find((lang) => lang !== 'es') || 'es';
             };
 
-            // libro.somosenlaces.org -> ['libro.somosenlaces.org', 'somosenlaces.org']
             const domains = () => {
                 const parts = location.hostname.split('.');
                 if (parts.length < 2 || /^\d+$/.test(parts.at(-1))) return [];
@@ -47,7 +92,7 @@
             };
 
             const select = (lang) => {
-                if (lang === current()) return;
+                try { localStorage.setItem('libro_lang', lang); } catch (_) {}
 
                 if (lang === 'es') {
                     writeCookie('', true);
@@ -57,6 +102,7 @@
                     writeCookie(`/es/${lang}`);
                 }
 
+                window.dispatchEvent(new CustomEvent('libro:language-change', { detail: { lang } }));
                 location.reload();
             };
 
@@ -71,12 +117,14 @@
             document.addEventListener('DOMContentLoaded', mark);
             mark();
 
-            return { current };
+            return { current, select };
         })();
 
         function googleTranslateElementInit() {
-            new google.translate.TranslateElement({ pageLanguage: 'es', includedLanguages: 'en,es', autoDisplay: false }, 'google_translate_element');
+            try {
+                new google.translate.TranslateElement({ pageLanguage: 'es', includedLanguages: 'en,es', autoDisplay: false }, 'google_translate_element');
+            } catch (_) {}
         }
     </script>
-    <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
+    <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async onerror="console.warn('Google Translate widget omitido por bloqueador de cliente.')"></script>
 @endonce
