@@ -46,11 +46,19 @@ class PdfRenderer
             $path, '-',
         ]);
 
-        if (! $result->successful()) {
-            throw new RuntimeException('No se pudo extraer el texto de la página '.$page.'.');
+        if ($result->successful()) {
+            return $result->output();
         }
 
-        return $result->output();
+        // Fallback: extract text directly from PDF page stream in pure PHP
+        $extracted = $this->extractTextFromPdf($path, $page);
+        if ($extracted !== '') {
+            return $extracted;
+        }
+
+        Log::warning("PdfRenderer: Falló extracción con {$binary} en página {$page}. Salida: ".$result->errorOutput());
+
+        return '';
     }
 
     /**
@@ -70,15 +78,37 @@ class PdfRenderer
                 $path, $outputBase,
             ]);
 
-            if (! $result->successful() || ! is_file($outputBase.'.png')) {
-                throw new RuntimeException('No se pudo renderizar la página '.$page.'.');
+            if ($result->successful() && is_file($outputBase.'.png')) {
+                return file_get_contents($outputBase.'.png');
             }
-
-            return file_get_contents($outputBase.'.png');
         } finally {
             @unlink($outputBase);
             @unlink($outputBase.'.png');
         }
+
+        // Fallback: render using Imagick if available on the server
+        if (class_exists(\Imagick::class)) {
+            try {
+                $im = new \Imagick;
+                $im->setResolution(150, 150);
+                $im->readImage($path.'['.($page - 1).']');
+                $im->setImageFormat('png');
+                $im->thumbnailImage($width, 0);
+                $png = $im->getImageBlob();
+                $im->clear();
+                $im->destroy();
+
+                if ($png !== false && strlen($png) > 0) {
+                    return $png;
+                }
+            } catch (\Throwable $e) {
+                Log::warning("PdfRenderer: Falló renderizado Imagick para página {$page}: ".$e->getMessage());
+            }
+        }
+
+        Log::warning("PdfRenderer: Falló {$binary} para renderizar página {$page}. Salida: ".($result->errorOutput() ?? ''));
+
+        throw new RuntimeException('No se pudo renderizar la página '.$page.'.');
     }
 
     /**
@@ -140,5 +170,74 @@ class PdfRenderer
         }
 
         return 0;
+    }
+
+    /**
+     * Fallback to extract text from a PDF page using pure PHP.
+     */
+    private function extractTextFromPdf(string $path, int $page): string
+    {
+        if (! is_file($path) || ! is_readable($path)) {
+            return '';
+        }
+
+        $content = @file_get_contents($path);
+        if ($content === false || ! str_starts_with($content, '%PDF-')) {
+            return '';
+        }
+
+        // Find all page objects
+        if (! preg_match_all('/\/Type\s*\/Page\b(?!\s*s)/', $content, $matches, PREG_OFFSET_CAPTURE)) {
+            return '';
+        }
+
+        if (! isset($matches[0][$page - 1])) {
+            return '';
+        }
+
+        $pageOffset = $matches[0][$page - 1][1];
+        $pageChunk = substr($content, $pageOffset, 3000);
+
+        // Find Contents object reference: /Contents 5 0 R or /Contents [5 0 R 6 0 R]
+        $contentIds = [];
+        if (preg_match('/\/Contents\s+(\d+)\s+0\s+R/', $pageChunk, $c)) {
+            $contentIds[] = $c[1];
+        } elseif (preg_match('/\/Contents\s*\[(.*?)\]/s', $pageChunk, $c)) {
+            if (preg_match_all('/(\d+)\s+0\s+R/', $c[1], $ids)) {
+                $contentIds = $ids[1];
+            }
+        }
+
+        $fullText = '';
+        foreach ($contentIds as $contentId) {
+            if (preg_match('/'.$contentId.'\s+0\s+obj.*?stream[\r\n]+(.*?)[\r\n]+endstream/s', $content, $s)) {
+                $stream = $s[1];
+                // Check if compressed with FlateDecode (zlib)
+                if (str_starts_with($stream, "\x78\x9c") || str_starts_with($stream, "\x78\x01") || str_starts_with($stream, "\x78\xda")) {
+                    $decompressed = @gzuncompress($stream);
+                    if ($decompressed !== false) {
+                        $stream = $decompressed;
+                    }
+                }
+
+                // Extract strings from Tj operators: (text) Tj
+                if (preg_match_all('/\((.*?)\)\s*Tj/s', $stream, $tj)) {
+                    foreach ($tj[1] as $line) {
+                        $fullText .= stripcslashes($line)."\n";
+                    }
+                }
+
+                // Extract strings from TJ array operators: [(t1) 20 (t2)] TJ
+                if (preg_match_all('/\[(.*?)\]\s*TJ/s', $stream, $tjs)) {
+                    foreach ($tjs[1] as $arrayChunk) {
+                        if (preg_match_all('/\((.*?)\)/s', $arrayChunk, $parts)) {
+                            $fullText .= implode('', array_map('stripcslashes', $parts[1]))."\n";
+                        }
+                    }
+                }
+            }
+        }
+
+        return trim($fullText);
     }
 }

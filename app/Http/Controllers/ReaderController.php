@@ -13,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -77,8 +78,16 @@ class ReaderController extends Controller
             return $denied;
         }
 
+        try {
+            $html = $this->content->pdfPageText($book, $page);
+        } catch (\Throwable $e) {
+            Log::warning("Error al extraer texto para libro {$book->id} página {$page}: ".$e->getMessage());
+
+            $html = '<p class="text-center opacity-60">(No se pudo extraer el texto de esta página. Cambia a modo página para ver el diseño original.)</p>';
+        }
+
         return response()->json([
-            'html' => $this->content->pdfPageText($book, $page),
+            'html' => $html,
             'watermark' => $this->watermarkText($request),
         ], 200, $this->protectedHeaders('application/json'));
     }

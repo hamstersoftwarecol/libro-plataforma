@@ -188,6 +188,20 @@ class ReaderAccessTest extends TestCase
         $this->actingAs($reader)->withHeader('X-Reading-Session', $token)->getJson(route('reader.text', [$book, 1]))->assertForbidden();
     }
 
+    public function test_pdf_page_text_returns_200_even_if_pdftotext_is_misconfigured(): void
+    {
+        config(['reader.pdftotext_path' => '/nonexistent/path/to/pdftotext']);
+
+        $reader = $this->subscriber();
+        $book = $this->publishedBook();
+        $token = $this->openReader($reader, $book);
+
+        $response = $this->actingAs($reader)->withHeader('X-Reading-Session', $token)->getJson(route('reader.text', [$book, 2]));
+
+        $response->assertOk()
+            ->assertJsonPath('html', '<p>Pagina 2</p>');
+    }
+
     public function test_page_text_is_not_available_for_epub_books(): void
     {
         $reader = $this->subscriber();
