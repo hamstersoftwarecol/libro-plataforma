@@ -7,6 +7,7 @@ use App\Models\Book;
 use App\Services\Reader\BookContent;
 use App\Services\Reader\BookVault;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -29,7 +30,9 @@ class BookFileStorage
 
         try {
             $readingUnits = $this->content->analyze($file->getRealPath(), $format);
-        } catch (RuntimeException) {
+        } catch (RuntimeException $e) {
+            Log::warning('Error al analizar archivo de libro ('.$file->getClientOriginalName().'): '.$e->getMessage());
+
             throw ValidationException::withMessages([
                 'file' => 'El archivo está dañado o no es un '.strtoupper($format->value).' válido.',
             ]);

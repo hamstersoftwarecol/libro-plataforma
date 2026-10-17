@@ -98,6 +98,20 @@ class BookManagementTest extends TestCase
         Storage::disk('books')->assertDirectoryEmpty('/');
     }
 
+    public function test_pdf_upload_succeeds_even_if_pdfinfo_path_is_misconfigured(): void
+    {
+        config(['reader.pdfinfo_path' => '/nonexistent/path/to/pdfinfo']);
+
+        $this->actingAs(User::factory()->admin()->create())->post(route('admin.books.store'), [
+            'title' => 'PDF con fallback',
+            'language' => 'es',
+            'file' => BookFixtures::pdfUpload(3),
+        ])->assertSessionHasNoErrors();
+
+        $book = Book::where('title', 'PDF con fallback')->firstOrFail();
+        $this->assertSame(3, $book->page_count);
+    }
+
     public function test_invalid_file_types_are_rejected(): void
     {
         $this->actingAs(User::factory()->admin()->create())->post(route('admin.books.store'), [
