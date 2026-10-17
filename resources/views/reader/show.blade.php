@@ -10,6 +10,22 @@
     @vite(['resources/css/app.css'])
     <style>
         @media print { body { display: none !important; } }
+        *, *::before, *::after {
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            user-select: none !important;
+            -webkit-touch-callout: none !important;
+        }
+        input, input *, textarea, textarea * {
+            -webkit-user-select: auto !important;
+            -moz-user-select: auto !important;
+            user-select: auto !important;
+        }
+        #page-canvas, #page-wrapper, #chapter, #chapter-wrapper {
+            -webkit-user-drag: none;
+            user-drag: none;
+        }
         .reader-protected { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
         .dark-pages #page-canvas { filter: invert(0.9) hue-rotate(180deg) sepia(0.28) brightness(0.92); }
         body[data-theme='dark'] { background-image: radial-gradient(ellipse 70% 45% at 50% -5%, oklch(0.3 0.07 45 / 0.5), transparent 70%), radial-gradient(ellipse 50% 35% at 50% 110%, oklch(0.26 0.06 35 / 0.35), transparent 70%); background-attachment: fixed; }
@@ -24,7 +40,7 @@
         #chapter blockquote { border-left: 3px solid currentColor; opacity: .85; padding-left: 1em; margin: 1em 0; }
     </style>
 </head>
-<body data-theme="dark" class="reader-protected h-full bg-[#efe6d6] text-zinc-900 transition-colors duration-500 data-[theme=dark]:bg-zinc-950 data-[theme=dark]:text-zinc-100">
+<body data-theme="dark" class="reader-protected h-full bg-[#efe6d6] text-zinc-900 transition-colors duration-500 data-[theme=dark]:bg-zinc-950 data-[theme=dark]:text-zinc-100" oncontextmenu="return false;">
     <header class="sticky top-0 z-20 border-b border-black/10 bg-[#f6efe3]/80 backdrop-blur-xl transition-colors duration-500 in-data-[theme=dark]:border-white/[0.06] in-data-[theme=dark]:bg-zinc-950/70">
         <div class="mx-auto flex h-14 max-w-6xl items-center gap-1 px-3 text-sm sm:gap-2">
             <a href="{{ route('library.show', $book) }}" class="btn btn-ghost btn-sm px-2" title="Salir del lector"><x-icon name="arrow-left" class="size-4" /></a>
@@ -289,17 +305,76 @@
             $('#position-input').addEventListener('change', (event) => goTo(parseInt(event.target.value, 10) || 1));
 
             document.addEventListener('keydown', (event) => {
-                if ((event.ctrlKey || event.metaKey) && ['s', 'p', 'c', 'a', 'u'].includes(event.key.toLowerCase())) {
+                const key = event.key ? event.key.toLowerCase() : '';
+                const code = event.keyCode || event.which;
+                const isMod = event.ctrlKey || event.metaKey;
+                const isShift = event.shiftKey;
+                const isAlt = event.altKey;
+
+                // 1. Bloquear Modo Desarrollador / DevTools (F12, Ctrl+Shift+I/J/C/K/E, Cmd+Option+I/J/C/U)
+                if (key === 'f12' || code === 123) {
                     event.preventDefault();
-                    return;
+                    event.stopPropagation();
+                    return false;
                 }
+                if (isMod && isShift && ['i', 'j', 'c', 'k', 'e'].includes(key)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return false;
+                }
+                if (isMod && isAlt && ['i', 'j', 'c', 'u'].includes(key)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return false;
+                }
+
+                // 2. Bloquear Ver Código Fuente (Ctrl+U), Guardar (Ctrl+S), Imprimir (Ctrl+P)
+                if (isMod && ['s', 'p', 'u'].includes(key)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return false;
+                }
+
+                // 3. Bloquear Copiar (Ctrl+C), Pegar (Ctrl+V), Cortar (Ctrl+X), Seleccionar Todo (Ctrl+A) fuera de inputs
+                if (event.target.tagName !== 'INPUT' && isMod && ['c', 'v', 'x', 'a'].includes(key)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return false;
+                }
+
                 if (event.target.tagName === 'INPUT') return;
                 if (event.key === 'ArrowRight' || event.key === 'PageDown') actions.next();
                 if (event.key === 'ArrowLeft' || event.key === 'PageUp') actions.prev();
+            }, true);
+
+            // Bloquear click derecho (contextmenu), arrastrar, copiar, cortar, pegar y seleccionar
+            ['contextmenu', 'dragstart', 'copy', 'cut', 'paste', 'selectstart'].forEach((type) => {
+                document.addEventListener(type, (event) => {
+                    if (event.target.tagName !== 'INPUT') {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (type === 'copy' && event.clipboardData) {
+                            event.clipboardData.setData('text/plain', '');
+                        }
+                        return false;
+                    }
+                }, true);
             });
 
-            ['contextmenu', 'dragstart', 'copy', 'cut', 'selectstart'].forEach((type) =>
-                document.addEventListener(type, (event) => { if (event.target.tagName !== 'INPUT') event.preventDefault(); }));
+            // Quitar cualquier selección de texto activa
+            document.addEventListener('selectionchange', () => {
+                if (document.activeElement?.tagName !== 'INPUT') {
+                    const sel = window.getSelection();
+                    if (sel && !sel.isCollapsed) {
+                        sel.removeAllRanges();
+                    }
+                }
+            });
+
+            // Trampa activa anti-depuración para frenar DevTools
+            setInterval(() => {
+                (function () {}.constructor('debugger')());
+            }, 1000);
 
             let resizeTimer;
             window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => config.format === 'pdf' && render(), 300); });
