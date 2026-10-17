@@ -149,7 +149,7 @@
 
             delete state.textMode;
             const translating = () => (window.libroTranslation?.current() || 'es') !== 'es';
-            state.textMode = config.format === 'epub' || translating();
+            state.textMode = config.format === 'epub';
 
             const savePrefs = () => {
                 try { localStorage.setItem(config.storageKey, JSON.stringify({ zoom: state.zoom, theme: state.theme })); } catch (error) {}
@@ -214,7 +214,7 @@
                         $('#chapter-wrapper').classList.remove('hidden');
                         $('#text-mode-label').textContent = translating() ? 'Page' : 'Página';
                     }
-                    await renderText();
+                    await renderText(true);
                     return;
                 }
 
@@ -242,12 +242,25 @@
 
             const currentLang = () => (window.libroTranslation?.current() || 'es');
 
-            const renderText = async () => {
+            const renderText = async (isFallback = false) => {
                 const url = config.format === 'epub' ? config.chapterUrl : config.textUrl;
                 const lang = currentLang();
                 const separator = url.includes('?') ? '&' : '?';
                 const response = await request(url.replace('__N__', state.position) + separator + 'lang=' + lang);
                 const data = await response.json();
+
+                if (config.format === 'pdf' && data.empty && !isFallback) {
+                    state.textMode = false;
+                    const pdfWrapper = document.getElementById('page-wrapper');
+                    if (pdfWrapper) {
+                        pdfWrapper.classList.remove('hidden');
+                        $('#chapter-wrapper').classList.add('hidden');
+                        $('#text-mode-label').textContent = translating() ? 'Text' : 'Texto';
+                    }
+                    await renderPdf();
+                    return;
+                }
+
                 $('#chapter').innerHTML = data.html;
                 $('#chapter').style.fontSize = (1.1 * state.zoom) + 'rem';
                 const watermark = $('#watermark');

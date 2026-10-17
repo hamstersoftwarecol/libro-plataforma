@@ -94,16 +94,20 @@ class ReaderController extends Controller
 
         $lang = $request->query('lang') === 'en' ? 'en' : 'es';
 
+        $empty = false;
         try {
             $html = $this->content->pdfPageText($book, $page, $lang);
+            $empty = str_contains($html, '(Esta página no contiene texto') || str_contains($html, '(This page has no text');
         } catch (\Throwable $e) {
             Log::warning("Error al extraer texto para libro {$book->id} página {$page}: ".$e->getMessage());
 
             $html = '<p class="text-center opacity-60">(No se pudo extraer el texto de esta página. Cambia a modo página para ver el diseño original.)</p>';
+            $empty = true;
         }
 
         return response()->json([
             'html' => $html,
+            'empty' => $empty,
             'watermark' => $this->watermarkText($request),
             'lang' => $lang,
         ], 200, $this->protectedHeaders('application/json'));
